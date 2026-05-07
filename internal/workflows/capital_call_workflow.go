@@ -141,9 +141,11 @@ func CapitalCallWorkflow(ctx workflow.Context, input models.CapitalCallInput) (*
 	}
 
 	// ── Step 8: Escalate high-risk LPs to GP ────────────────────────────
+	// Only escalate LPs that are committed but high-risk. Defaulted LPs are
+	// already resolved — there is no commitment to waive or enforce.
 	highRiskIndices := []int{}
 	for i, lp := range lpResponses {
-		if lp.RiskScore > 0.7 {
+		if lp.RiskScore > 0.7 && lp.Status == "committed" {
 			highRiskIndices = append(highRiskIndices, i)
 			// Find the original LP info for the escalation message
 			var origLP models.LP

@@ -311,11 +311,20 @@ func (a *Activities) SettleAndReconcile(ctx context.Context, input models.Settle
 
 	if a.DB != nil {
 		for _, lp := range input.LPResponses {
+			// Update each LP's final status in the fund ledger table.
+			_, err := a.DB.Exec(ctx,
+				`UPDATE capital_call_lps SET status = $1 WHERE call_id = $2 AND lp_id = $3`,
+				lp.Status, input.CallID, lp.LPID,
+			)
+			if err != nil {
+				return fmt.Errorf("update capital_call_lps status for LP %s: %w", lp.LPID, err)
+			}
+
 			if lp.Status != "committed" {
 				continue
 			}
 			// Debit: LP capital account → Credit: Fund cash account
-			_, err := a.DB.Exec(ctx,
+			_, err = a.DB.Exec(ctx,
 				`INSERT INTO ledger_entries (call_id, lp_id, debit_account, credit_account, amount_usd, entry_type)
 				 VALUES ($1, $2, $3, $4, $5, 'capital_call')`,
 				input.CallID, lp.LPID,

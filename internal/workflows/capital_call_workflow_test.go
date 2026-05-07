@@ -244,6 +244,68 @@ func (s *CapitalCallWorkflowTestSuite) TestGPEscalation() {
 	}
 }
 
+// TestDefaultedHighRiskLPNotEscalated verifies that a defaulted LP whose
+// ML risk score exceeds 0.7 is NOT escalated to the GP. A defaulted LP has
+// no commitment to waive or enforce, so waiting for a GP decision would
+// deadlock the workflow.
+func (s *CapitalCallWorkflowTestSuite) TestDefaultedHighRiskLPNotEscalated() {
+	input := testInput()
+
+	s.env.OnActivity("IssueCapitalCall", mock.Anything, mock.Anything).Return(
+		&models.IssueCapitalCallResult{CallID: "test-call-1", DrawAmounts: map[string]float64{}}, nil,
+	)
+	s.env.OnActivity("NotifyLPs", mock.Anything, mock.Anything).Return(nil)
+	s.env.OnActivity("AutoFollowUp", mock.Anything, mock.Anything).Return(nil).Maybe()
+
+	s.env.OnActivity("AggregateLiquidity", mock.Anything, mock.Anything).Return(
+		&models.AggregateLiquidityResult{TotalCommitted: 7_000_000, GapUSD: 3_000_000, GapPercent: 30.0}, nil,
+	)
+
+	// LP-03 defaulted with a high risk score — must NOT trigger GP escalation
+	s.env.OnActivity("PredictDefaultRisk", mock.Anything, mock.Anything).Return(
+		[]models.LPResponse{
+			{LPID: "lp-01", Status: "committed", AmountUSD: 4_000_000, RiskScore: 0.1},
+			{LPID: "lp-02", Status: "committed", AmountUSD: 3_000_000, RiskScore: 0.2},
+			{LPID: "lp-03", Status: "defaulted", AmountUSD: 0, RiskScore: 0.85},
+		}, nil,
+	)
+
+	s.env.OnActivity("ScoreLPPortfolio", mock.Anything, mock.Anything).Return(
+		&models.PortfolioRisk{ConcentrationScore: 0.40}, nil,
+	)
+	s.env.OnActivity("TriggerBridge", mock.Anything, mock.Anything).Return(
+		&models.TriggerBridgeResult{ConfirmationID: "BRIDGE-001", DrawdownUSD: 3_000_000, FeeUSD: 45_000}, nil,
+	)
+	// EscalateToGP must NOT be called — if it were, the workflow would hang
+	// waiting for a GP decision that this test never sends.
+	s.env.OnActivity("EscalateToGP", mock.Anything, mock.Anything).Return(nil).Maybe()
+	s.env.OnActivity("SettleAndReconcile", mock.Anything, mock.Anything).Return(nil)
+	s.env.OnActivity("EmitLiquidityReport", mock.Anything, mock.Anything).Return("/reports/test-call-1.json", nil)
+
+	s.env.RegisterDelayedCallback(func() {
+		s.env.SignalWorkflowByID("lp-response-test-call-1-lp-01", SignalLPCommitment,
+			models.LPCommitmentSignal{LPID: "lp-01", AmountUSD: 4_000_000})
+		s.env.SignalWorkflowByID("lp-response-test-call-1-lp-02", SignalLPCommitment,
+			models.LPCommitmentSignal{LPID: "lp-02", AmountUSD: 3_000_000})
+		// lp-03 does not commit — times out and becomes defaulted
+	}, 0)
+
+	s.env.ExecuteWorkflow(CapitalCallWorkflow, input)
+
+	require.True(s.T(), s.env.IsWorkflowCompleted())
+	require.NoError(s.T(), s.env.GetWorkflowError())
+
+	var result models.CapitalCallResult
+	require.NoError(s.T(), s.env.GetWorkflowResult(&result))
+	require.True(s.T(), result.BridgeTriggered)
+
+	for _, lp := range result.LPResponses {
+		if lp.LPID == "lp-03" {
+			require.Equal(s.T(), "defaulted", lp.Status)
+		}
+	}
+}
+
 // TestGPEnforce verifies that "enforce" marks the LP as defaulted.
 func (s *CapitalCallWorkflowTestSuite) TestGPEnforce() {
 	input := testInput()
