@@ -1,0 +1,4 @@
+.git
+reports/*.pdf
+reports/*.json
+*.md

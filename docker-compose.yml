@@ -1,0 +1,165 @@
+version: "3.8"
+
+services:
+  # ─── Infrastructure ────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: assetmgmt
+      POSTGRES_PASSWORD: assetmgmt
+      POSTGRES_DB: assetmgmt
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./db/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U assetmgmt"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  postgres-temporal:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_DB: temporal
+    volumes:
+      - postgres-temporal-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  temporal:
+    image: temporalio/auto-setup:latest
+    depends_on:
+      postgres-temporal:
+        condition: service_healthy
+    ports:
+      - "7233:7233"
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=postgres-temporal
+    healthcheck:
+      test: ["CMD", "tctl", "--address", "temporal:7233", "cluster", "health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  temporal-ui:
+    image: temporalio/ui:latest
+    depends_on:
+      temporal:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+
+  # ─── Mock / Support Services ───────────────────────────────────────
+
+  mock-ses:
+    build:
+      context: .
+      args:
+        SERVICE: mockses
+    ports:
+      - "8081:8081"
+
+  mock-credit-facility:
+    build:
+      context: .
+      args:
+        SERVICE: mockcreditfacility
+    ports:
+      - "8082:8082"
+
+  ml-scorer:
+    build:
+      context: ./services/ml-scorer
+    ports:
+      - "5001:5001"
+
+  report-generator:
+    build:
+      context: ./services/report-generator
+    ports:
+      - "5002:5002"
+    volumes:
+      - ./reports:/reports
+
+  # ─── Application Services ─────────────────────────────────────────
+
+  worker:
+    build:
+      context: .
+      args:
+        SERVICE: worker
+    depends_on:
+      temporal:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      mock-ses:
+        condition: service_started
+      ml-scorer:
+        condition: service_started
+      mock-credit-facility:
+        condition: service_started
+      report-generator:
+        condition: service_started
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      DATABASE_URL: postgres://assetmgmt:assetmgmt@postgres:5432/assetmgmt?sslmode=disable
+      SES_URL: http://mock-ses:8081
+      ML_SCORER_URL: http://ml-scorer:5001
+      CREDIT_FACILITY_URL: http://mock-credit-facility:8082
+      REPORT_GENERATOR_URL: http://report-generator:5002
+    restart: on-failure
+
+  api-server:
+    build:
+      context: .
+      args:
+        SERVICE: apiserver
+    depends_on:
+      temporal:
+        condition: service_healthy
+    ports:
+      - "8090:8090"
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      LISTEN_ADDR: ":8090"
+    restart: on-failure
+
+  # ─── Demo Driver (run once) ───────────────────────────────────────
+
+  demo-driver:
+    build:
+      context: .
+      args:
+        SERVICE: demodriver
+    depends_on:
+      worker:
+        condition: service_started
+      api-server:
+        condition: service_started
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      API_SERVER_URL: http://api-server:8090
+    profiles:
+      - demo
+    restart: "no"
+
+volumes:
+  postgres-data:
+  postgres-temporal-data:
