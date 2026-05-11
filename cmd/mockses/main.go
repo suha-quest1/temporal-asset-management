@@ -82,7 +82,7 @@ func main() {
 		}
 		setInterval(load,2000);window.onload=load;
 		</script></head><body>
-		<h2>Mock SES — Email Log Viewer</h2>
+		<h2>Mock SES - Email Log Viewer</h2>
 		<p>Total emails: <span id="count">` + string(rune(count+'0')) + `</span></p>
 		<table><thead><tr><th>Time</th><th>To</th><th>Subject</th><th>Type</th></tr></thead>
 		<tbody id="log"></tbody></table></body></html>`))

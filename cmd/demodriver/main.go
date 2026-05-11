@@ -33,7 +33,7 @@ func main() {
 	for i := 0; i < 10; i++ {
 		lps[i] = models.LP{
 			LPID:          fmt.Sprintf("lp-%02d", i+1),
-			CommitmentUSD: float64((i+1)*1_000_000),
+			CommitmentUSD: float64((i + 1) * 1_000_000),
 			Email:         fmt.Sprintf("lp%02d@example.com", i+1),
 		}
 	}
@@ -91,7 +91,7 @@ func main() {
 	log.Println("═══ Waiting for GP escalation, then sending GP decision ═══")
 	time.Sleep(40 * time.Second) // wait for child timeouts + risk scoring
 
-	sendGPDecision(apiServerURL, callID, "lp-08", "waive", "Jane Smith")
+	sendGPDecision(apiServerURL, callID, "lp-08", "waive", "Vishy Iyer")
 
 	// Wait for workflow completion
 	log.Println()
