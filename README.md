@@ -138,7 +138,7 @@ curl -X POST http://localhost:8090/api/capital-calls/call-001/lp-response \
 ```bash
 curl -X POST http://localhost:8090/api/capital-calls/call-001/gp-decision \
   -H "Content-Type: application/json" \
-  -d '{"lpId": "lp-02", "action": "waive", "gpName": "Jane Smith"}'
+  -d '{"lpId": "lp-02", "action": "waive", "gpName": "Vishy Iyer"}'
 ```
 
 ## Running Tests
