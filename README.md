@@ -1,6 +1,6 @@
 # Asset Management: Intelligent Capital Call & Liquidity Orchestration
 
-A demo of a GP (General Partner) capital call workflow built with [Temporal](https://temporal.io/) and Go. The system notifies LPs, waits for commitment signals, runs ML risk scoring, autonomously follows up overdue LPs, triggers credit line drawdowns, escalates high-risk LPs for GP decisions, settles, and emits a regulatory-grade report.
+A demo of a GP (General Partner) capital call workflow built with [Temporal](https://temporal.io/) and [Go](https://go.dev/). The system notifies LPs (Limited Partners), waits for commitment signals, runs ML risk scoring, autonomously follows up overdue LPs, triggers credit line drawdowns, escalates high-risk LPs for GP decisions, settles, and emits a regulatory-grade report.
 
 ## Architecture
 
