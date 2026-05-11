@@ -1,0 +1,131 @@
+      ─────────────────────  ┌─────────────┬───────────────────────────────────────────────────────────────────────────────┐
+      ─────────────────────  │   Colour    │                                    Meaning                                    │
+      ─────────────────────  ├─────────────┼───────────────────────────────────────────────────────────────────────────────┤
+      ─────────────────────  │ Blue        │ Temporal activity (side-effectful, retried up to 3× with exponential backoff) │
+      ─────────────────────  ├─────────────┼───────────────────────────────────────────────────────────────────────────────┤
+      ─────────────────────  │ Orange      │ Decision / branch point                                                       │
+      ─────────────────────  ├─────────────┼───────────────────────────────────────────────────────────────────────────────┤
+      ─────────────────────  │ Green       │ Temporal signal wait (durable pause — survives worker restarts)               │
+      ─────────────────────  ├─────────────┼───────────────────────────────────────────────────────────────────────────────┤
+      ─────────────────────  │ Purple      │ Start / end / child workflow return value                                     │
+      ─────────────────────  ├─────────────┼───────────────────────────────────────────────────────────────────────────────┤
+      ─────────────────────  │ Grey dashed │ External API endpoints that inject signals                                    │
+      ─────────────────────  └─────────────┴───────────────────────────────────────────────────────────────────────────────┘
+
+flowchart TD
+      classDef activity fill:#2E86AB,stroke:#1A5276,color:#fff
+      classDef decision fill:#E67E22,stroke:#CA6F1E,color:#fff
+      classDef signal fill:#27AE60,stroke:#1E8449,color:#fff
+      classDef terminal fill:#8E44AD,stroke:#6C3483,color:#fff
+      classDef api fill:#F8F9FA,stroke:#AAB7B8,color:#555,stroke-dasharray:4 2
+
+      START(["GP Issues Capital Call"]):::terminal
+      START --> ISSUE
+
+      ISSUE["issueCapitalCall
+      ─────────────────────
+      INSERT capital_calls
+      INSERT capital_call_lps × N
+      Compute pro-rata draw amounts"]:::activity
+      ISSUE --> NOTIFY
+
+      NOTIFY["notifyLPs
+      ─────────────────────
+      Batch SES email + portal link
+      to every LP"]:::activity
+      NOTIFY --> FANOUT
+
+      FANOUT{{"Fan-out
+      one child workflow
+      per LP — concurrent"}}
+
+      subgraph CHILD ["⚙  LPResponseWorkflow  ×  N  (all run in parallel)"]
+          direction TB
+          W1(["waitForSignal
+          lpCommitment"]):::signal
+          W1 -->|"signal received"| RC(["Return: committed ✔"]):::terminal
+          W1 -->|"D+3 timer"| FU1["autoFollowUp
+          Stage 1 — Email"]:::activity
+          FU1 --> W2(["waitForSignal
+          lpCommitment"]):::signal
+          W2 -->|"signal received"| RC
+          W2 -->|"D+7 timer"| FU2["autoFollowUp
+          Stage 2 — Phone call"]:::activity
+          FU2 --> W3(["waitForSignal
+          lpCommitment"]):::signal
+          W3 -->|"signal received"| RC
+          W3 -->|"D+10 timer"| FU3["autoFollowUp
+          Stage 3 — Legal notice"]:::activity
+          FU3 --> W4(["waitForSignal
+          lpCommitment"]):::signal
+          W4 -->|"signal received"| RC
+          W4 -->|"Deadline timer"| RD(["Return: defaulted ✘"]):::terminal
+      end
+
+      API_LP["POST /api/capital-calls/{id}
+      /lp-response"]:::api
+      API_LP -.->|"sends signal"| W1
+
+      FANOUT --> CHILD
+      CHILD -->|"Collect all N responses"| AGG
+
+      AGG["aggregateLiquidity
+      ─────────────────────
+      Σ committed amounts
+      Compute gap vs target"]:::activity
+      AGG --> RISK
+
+      RISK["predictDefaultRisk
+      ─────────────────────
+      HTTP → ml-scorer (Flask)
+      scikit-learn score per LP"]:::activity
+      RISK --> PORT
+
+      PORT["scoreLPPortfolio
+      ─────────────────────
+      Herfindahl-Hirschman Index
+      Identify top risky LPs"]:::activity
+      PORT --> GAPQ
+
+      GAPQ{"Gap > 10%
+      of target?"}:::decision
+      GAPQ -->|"Yes"| BRIDGE["triggerBridge
+      ─────────────────────
+      POST to credit facility
+      Drawdown gap amount"]:::activity
+      GAPQ -->|"No"| ESCALQ
+      BRIDGE --> ESCALQ
+
+      ESCALQ{"Committed LP
+      risk score > 0.7?"}:::decision
+      ESCALQ -->|"Yes"| ESCAL["escalateToGP
+      ─────────────────────
+      Alert to GP channel
+      LP summary + risk score"]:::activity
+      ESCAL --> GPSIG(["waitForSignal
+      gpDecision
+      ── human gate ──"]):::signal
+      GPSIG -->|"waive"| WAIVE["LP stays committed"]
+      GPSIG -->|"enforce"| ENFORCE["LP → defaulted
+      amount = 0"]
+      WAIVE --> SETTLE
+      ENFORCE --> SETTLE
+      ESCALQ -->|"No"| SETTLE
+
+      API_GP["POST /api/capital-calls/{id}
+      /gp-decision"]:::api
+      API_GP -.->|"sends signal"| GPSIG
+
+      SETTLE["settleAndReconcile
+      ─────────────────────
+      UPDATE capital_call_lps.status
+      INSERT ledger_entries (wire transfers)
+      UPDATE capital_calls → settled"]:::activity
+      SETTLE --> REPORT
+
+      REPORT["emitLiquidityReport
+      ─────────────────────
+      POST → report-generator
+      Write TXT + JSON to /reports/"]:::activity
+      REPORT --> DONE(["Capital Call Complete
+      Return CapitalCallResult"]):::terminal
