@@ -7,13 +7,15 @@ type LP struct {
 	Email         string  `json:"email"`
 }
 
+//!!!- why is there no GP struct?
+
 // CapitalCallInput is the input to the parent CapitalCallWorkflow.
 type CapitalCallInput struct {
-	CallID          string `json:"callId"`
-	FundID          string `json:"fundId"`
+	CallID          string  `json:"callId"`
+	FundID          string  `json:"fundId"`
 	TargetAmountUSD float64 `json:"targetAmountUSD"`
-	LPList          []LP   `json:"lpList"`
-	DeadlineDays    int    `json:"deadlineDays"`
+	LPList          []LP    `json:"lpList"`
+	DeadlineDays    int     `json:"deadlineDays"`
 	// SecondsPerDay overrides the day duration for demo mode.
 	// If 0, defaults to 86400 (real days).
 	SecondsPerDay int `json:"secondsPerDay,omitempty"`
@@ -21,16 +23,16 @@ type CapitalCallInput struct {
 
 // CapitalCallResult is the final output of CapitalCallWorkflow.
 type CapitalCallResult struct {
-	CallID          string        `json:"callId"`
-	TotalCommitted  float64       `json:"totalCommitted"`
-	TargetAmountUSD float64       `json:"targetAmountUSD"`
-	GapUSD          float64       `json:"gapUSD"`
-	GapPercent      float64       `json:"gapPercent"`
-	BridgeTriggered bool          `json:"bridgeTriggered"`
+	CallID          string               `json:"callId"`
+	TotalCommitted  float64              `json:"totalCommitted"`
+	TargetAmountUSD float64              `json:"targetAmountUSD"`
+	GapUSD          float64              `json:"gapUSD"`
+	GapPercent      float64              `json:"gapPercent"`
+	BridgeTriggered bool                 `json:"bridgeTriggered"`
 	BridgeResult    *TriggerBridgeResult `json:"bridgeResult,omitempty"`
-	LPResponses     []LPResponse  `json:"lpResponses"`
-	PortfolioRisk   PortfolioRisk `json:"portfolioRisk"`
-	ReportPath      string        `json:"reportPath"`
+	LPResponses     []LPResponse         `json:"lpResponses"`
+	PortfolioRisk   PortfolioRisk        `json:"portfolioRisk"`
+	ReportPath      string               `json:"reportPath"`
 }
 
 // LPResponse represents the outcome of a single LP's participation.
