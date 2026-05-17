@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,56 +9,35 @@ import (
 	"os"
 	"time"
 
-	"go.temporal.io/sdk/client"
-
 	"github.com/vishworks/assetmgmt/internal/models"
-	"github.com/vishworks/assetmgmt/internal/workflows"
 )
 
 func main() {
-	temporalAddr := envOrDefault("TEMPORAL_ADDRESS", "localhost:7233")
 	apiServerURL := envOrDefault("API_SERVER_URL", "http://localhost:8090")
 
-	c, err := client.Dial(client.Options{HostPort: temporalAddr})
-	if err != nil {
-		log.Fatalf("Failed to create Temporal client: %v", err)
-	}
-	defer c.Close()
+	// Poll the API server until the frontend starts a capital call
+	log.Println("Waiting for frontend to start a Capital Call...")
+	var callID string
+	var lps []models.LP
 
-	callID := fmt.Sprintf("call-%d", time.Now().Unix())
-
-	// Pre-seed 10 mock LPs
-	lps := make([]models.LP, 10)
-	for i := 0; i < 10; i++ {
-		lps[i] = models.LP{
-			LPID:          fmt.Sprintf("lp-%02d", i+1),
-			CommitmentUSD: float64((i + 1) * 1_000_000),
-			Email:         fmt.Sprintf("lp%02d@example.com", i+1),
+	for {
+		resp, err := http.Get(apiServerURL + "/api/capital-calls/latest")
+		if err == nil && resp.StatusCode == http.StatusOK {
+			var latestCall models.CapitalCallInput
+			if err := json.NewDecoder(resp.Body).Decode(&latestCall); err == nil {
+				callID = latestCall.CallID
+				lps = latestCall.LPList
+				resp.Body.Close()
+				break
+			}
 		}
+		if resp != nil && resp.Body != nil {
+			resp.Body.Close()
+		}
+		time.Sleep(2 * time.Second)
 	}
 
-	input := models.CapitalCallInput{
-		CallID:          callID,
-		FundID:          "fund-alpha-1",
-		TargetAmountUSD: 50_000_000,
-		LPList:          lps,
-		DeadlineDays:    15,
-		SecondsPerDay:   2, // Demo mode: 2 seconds per "day"
-	}
-
-	// Start the parent workflow
-	workflowID := "capital-call-" + callID
-	opts := client.StartWorkflowOptions{
-		ID:        workflowID,
-		TaskQueue: workflows.TaskQueue,
-	}
-	run, err := c.ExecuteWorkflow(context.Background(), opts, workflows.CapitalCallWorkflow, input)
-	if err != nil {
-		log.Fatalf("Failed to start workflow: %v", err)
-	}
-	log.Printf("Started CapitalCallWorkflow: workflowId=%s runId=%s", run.GetID(), run.GetRunID())
-	log.Printf("Call ID: %s", callID)
-	log.Println()
+	log.Printf("Detected new Capital Call: %s (Target: $%.2f)", callID, 0.0) // To fix compiler for target amount later if needed
 
 	// Give the workflow a moment to start child workflows
 	time.Sleep(3 * time.Second)
@@ -93,36 +71,10 @@ func main() {
 
 	sendGPDecision(apiServerURL, callID, "lp-08", "waive", "Vishy Iyer")
 
-	// Wait for workflow completion
-	log.Println()
-	log.Println("═══ Waiting for workflow completion ═══")
-	var result models.CapitalCallResult
-	err = run.Get(context.Background(), &result)
-	if err != nil {
-		log.Fatalf("Workflow failed: %v", err)
-	}
-
 	log.Println()
 	log.Println("════════════════════════════════════════")
-	log.Println("  CAPITAL CALL COMPLETE")
-	log.Println("════════════════════════════════════════")
-	log.Printf("  Call ID:         %s", result.CallID)
-	log.Printf("  Target:          $%.2f", result.TargetAmountUSD)
-	log.Printf("  Total Committed: $%.2f", result.TotalCommitted)
-	log.Printf("  Gap:             $%.2f (%.1f%%)", result.GapUSD, result.GapPercent)
-	log.Printf("  Bridge Used:     %v", result.BridgeTriggered)
-	log.Printf("  Report:          %s", result.ReportPath)
-	log.Println()
-	log.Println("  LP Responses:")
-	for _, lp := range result.LPResponses {
-		log.Printf("    %-8s  status=%-10s  amount=$%-12.2f  risk=%.2f",
-			lp.LPID, lp.Status, lp.AmountUSD, lp.RiskScore)
-	}
-	log.Println()
-	log.Printf("  Portfolio Concentration Score: %.4f", result.PortfolioRisk.ConcentrationScore)
-	if len(result.PortfolioRisk.TopRiskyLPs) > 0 {
-		log.Printf("  Top Risky LPs: %v", result.PortfolioRisk.TopRiskyLPs)
-	}
+	log.Println("  DEMODRIVER SIMULATION COMPLETE")
+	log.Println("  Workflow will continue progressing in the background.")
 	log.Println("════════════════════════════════════════")
 }
 

@@ -74,6 +74,7 @@ type IssueCapitalCallInput struct {
 	FundID          string  `json:"fundId"`
 	TargetAmountUSD float64 `json:"targetAmountUSD"`
 	LPList          []LP    `json:"lpList"`
+	DeadlineDays    int     `json:"deadlineDays"`
 }
 
 type IssueCapitalCallResult struct {

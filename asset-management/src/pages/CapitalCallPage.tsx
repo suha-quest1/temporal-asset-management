@@ -1,78 +1,63 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import '../styles/CapitalCallPage.css';
 import StartCapitalCallModal from '../components/StartCapitalCallModal';
+import CapitalCallRow from '../components/CapitalCallRow';
+import type { CapitalCall } from '../components/CapitalCallRow';
+import { getCapitalCalls } from '../api/CapitalCall';
 
 const CapitalCallPage = () => {
   const [activeTab, setActiveTab] = useState('All Calls');
   // State for controlling the visibility of the "Start Capital Call" modal
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  //!!!placeholder vars (static)
-  const stats = [
-    { label: 'TOTAL CALLED (YTD)', value: '$42.8M' },
-    { label: 'PENDING LIQUIDITY', value: '$12.4M', valueColor: '#4f46e5' },
-    { label: 'AVG. LP RESPONSE', value: '4.2 Days' },
-    { label: 'ACTIVE CALLS', value: '07' },
-  ];
+  interface DashboardStats {
+    totalCalledYTD: string;
+    pendingLiquidity: string;
+    avgLPResponse: string;
+    activeCalls: string;
+  }
 
-  //!!!temporary list of fake CCs
-  const calls = [
-    {
-      id: 'CC-2024-008',
-      fund: 'Growth Fund IV',
-      target: '$5,000,000.00',
-      received: '$3,500,000.00',
-      progress: 70,
-      progressColor: '#4f46e5',
-      lpCompletion: '7 / 10',
-      deadlineDate: 'Oct 24, 2024',
-      deadlineSub: '4 Days Remaining',
-      deadlineSubColor: '#dc2626',
-      status: 'ACTIVE',
-      statusType: 'active'
-    },
-    {
-      id: 'CC-2024-009',
-      fund: 'Tech Ventures II',
-      target: '$2,250,000.00',
-      received: '$0.00',
-      progress: 0,
-      progressColor: '#e5e7eb',
-      lpCompletion: '0 / 12',
-      deadlineDate: 'Nov 05, 2024',
-      deadlineSub: 'Scheduled',
-      deadlineSubColor: '#6b7280',
-      status: 'WAITING',
-      statusType: 'waiting'
-    },
-    {
-      id: 'CC-2024-007',
-      fund: 'Real Estate Alpha',
-      target: '$12,000,000.00',
-      received: '$8,400,000.00',
-      progress: 70,
-      progressColor: '#d97706',
-      lpCompletion: '15 / 18',
-      deadlineDate: 'Oct 18, 2024',
-      deadlineSub: 'Bridge Financing',
-      deadlineSubColor: '#6b7280',
-      status: 'BRIDGE ACTIVE',
-      statusType: 'bridge'
-    },
-    {
-      id: 'CC-2024-006',
-      fund: 'Opportunities Fund I',
-      target: '$8,500,000.00',
-      received: '$8,500,000.00',
-      progress: 100,
-      progressColor: '#16a34a',
-      lpCompletion: '24 / 24',
-      deadlineDate: 'Oct 01, 2024',
-      deadlineSub: 'Closed',
-      deadlineSubColor: '#16a34a',
-      status: 'COMPLETED',
-      statusType: 'completed'
-    }
+  const [stats, setStats] = useState<DashboardStats>({
+    totalCalledYTD: '—',
+    pendingLiquidity: '—',
+    avgLPResponse: '—',
+    activeCalls: '—',
+  });
+
+  const [calls, setCalls] = useState<CapitalCall[]>([]);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const data = await fetch('/api/dashboard/stats').then(r => r.json());
+        setStats(data);
+      } catch (err) {
+        console.error('Failed to fetch dashboard stats', err);
+      }
+    };
+
+    const fetchCalls = async () => {
+      try {
+        const data = await getCapitalCalls();
+        if (Array.isArray(data)) {
+          setCalls(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch capital calls', err);
+      }
+    };
+
+    fetchStats();
+    fetchCalls();
+    const interval = setInterval(() => { fetchStats(); fetchCalls(); }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const statCards = [
+    { label: 'TOTAL CALLED (YTD)', value: stats.totalCalledYTD },
+    { label: 'PENDING LIQUIDITY', value: stats.pendingLiquidity, valueColor: '#4f46e5' },
+    { label: 'AVG. LP RESPONSE', value: stats.avgLPResponse },
+    { label: 'ACTIVE CALLS', value: stats.activeCalls },
   ];
 
   return (
@@ -101,7 +86,7 @@ const CapitalCallPage = () => {
 
         {/* Stats Section */}
         <div className="cc-stats-grid">
-          {stats.map((stat, idx) => (
+          {statCards.map((stat, idx) => (
             <div key={idx} className="cc-stat-card">
               <div className="cc-stat-label">{stat.label}</div>
               <div className="cc-stat-value" style={stat.valueColor ? { color: stat.valueColor } : {}}>{stat.value}</div>
@@ -139,35 +124,8 @@ const CapitalCallPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {calls.map((call, idx) => (
-                  <tr key={idx}>
-                    <td>
-                      <div className="cc-cell-title">{call.id}</div>
-                      <div className="cc-cell-sub">{call.fund}</div>
-                    </td>
-                    <td className="cc-target-amount">{call.target}</td>
-                    <td>
-                      <div className="cc-received-amount" style={{color: call.progressColor === '#e5e7eb' ? '#111827' : call.progressColor}}>{call.received}</div>
-                      <div className="cc-progress-bar-bg">
-                        <div className="cc-progress-bar-fill" style={{width: `${call.progress}%`, backgroundColor: call.progressColor}}></div>
-                      </div>
-                    </td>
-                    <td className="cc-lp-completion" style={{color: call.progressColor === '#e5e7eb' ? '#6b7280' : call.progressColor}}>{call.lpCompletion}</td>
-                    <td>
-                      <div className="cc-cell-title">{call.deadlineDate}</div>
-                      <div className="cc-cell-sub" style={{color: call.deadlineSubColor}}>{call.deadlineSub}</div>
-                    </td>
-                    <td>
-                      <span className={`cc-badge cc-badge-${call.statusType}`}>
-                        {call.status}
-                      </span>
-                    </td>
-                    <td className="cc-action-cell">
-                      <button className="cc-action-btn">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
-                      </button>
-                    </td>
-                  </tr>
+                {calls.map((call) => (
+                  <CapitalCallRow key={call.id} call={call} />
                 ))}
               </tbody>
             </table>

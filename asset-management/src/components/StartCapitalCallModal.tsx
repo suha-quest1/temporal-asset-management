@@ -1,48 +1,102 @@
-import type { FC } from 'react';
 import './StartCapitalCallModal.css';
+import { useState, useEffect, type FC } from 'react';
+import { startCapitalCall } from '../api/CapitalCall';
+
+interface LP {
+  lpId: string;
+  commitmentUSD: number;
+  email: string;
+}
 
 interface StartCapitalCallModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const dummyLPs = [
-  {
-    id: '#LP-2940',
-    name: 'Blue Chip Pension Fund',
-    committed: '$50,000,000.00',
-    lastCall: '12d ago',
-  },
-  {
-    id: '#LP-8812',
-    name: 'Evergreen Global Endowment',
-    committed: '$25,000,000.00',
-    lastCall: '45d ago',
-  },
-  {
-    id: '#LP-1109',
-    name: 'Sovereign Wealth Horizon',
-    committed: '$120,000,000.00',
-    lastCall: '3m ago',
-  },
-];
-
 const StartCapitalCallModal: FC<StartCapitalCallModalProps> = ({ isOpen, onClose }) => {
-  // 1. Conditional rendering: if the modal is not open, return null to render nothing.
+  const [targetAmount, setTargetAmount] = useState('');
+  const [deadlineDays, setDeadlineDays] = useState(10);
+  const [selectedPartners, setSelectedPartners] = useState<string[]>([]);
+  const [lps, setLPs] = useState<LP[]>([]);
+  const [loadingLPs, setLoadingLPs] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  // Fetch LPs from backend when modal opens
+  useEffect(() => {
+    if (!isOpen) return;
+
+    setLoadingLPs(true);
+    fetch('/api/lps')
+      .then(r => r.json())
+      .then((data: LP[]) => {
+        setLPs(Array.isArray(data) ? data : []);
+      })
+      .catch(err => {
+        console.error('Failed to load LPs:', err);
+        setLPs([]);
+      })
+      .finally(() => setLoadingLPs(false));
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
-  // 2. Event handler: logs dummy payload and closes the modal.
-  const handleStart = () => {
-    console.log('Initiating Capital Call with dummy payload...', {
-      targetAmount: 0,
-      deadlineDays: 10,
-      selectedPartners: dummyLPs.map(lp => lp.id)
-    });
-    onClose();
+  const handleSelectAll = () => {
+    if (selectedPartners.length === lps.length) {
+      setSelectedPartners([]);
+    } else {
+      setSelectedPartners(lps.map(lp => lp.lpId));
+    }
   };
 
-  // 3. Overlay wrapping: clicking the overlay backdrop triggers onClose()
-  //    clicking inside the content stops event propagation so it doesn't close.
+  const handleStart = async () => {
+    if (!targetAmount || Number(targetAmount) <= 0) {
+      setError('Please enter a valid target amount.');
+      return;
+    }
+    if (selectedPartners.length === 0) {
+      setError('Please select at least one LP.');
+      return;
+    }
+    setError('');
+    setSubmitting(true);
+
+    try {
+      // Build LP list using data from the backend — no frontend-owned commitments
+      const lpList = selectedPartners.map(id => {
+        const lp = lps.find(l => l.lpId === id)!;
+        return {
+          lpId: lp.lpId,
+          commitmentUSD: lp.commitmentUSD,
+          email: lp.email,
+        };
+      });
+
+      // Backend generates callId — frontend only sends the business inputs
+      const payload = {
+        fundId: 'fund-1',
+        targetAmountUSD: Number(targetAmount),
+        deadlineDays: deadlineDays,
+        lpList: lpList,
+      };
+
+      console.log('Sending payload:', payload);
+      const result = await startCapitalCall(payload);
+      console.log('Workflow started:', result);
+
+      // Reset form
+      setTargetAmount('');
+      setDeadlineDays(10);
+      setSelectedPartners([]);
+      onClose();
+    } catch (err) {
+      console.error(err);
+      setError('Failed to start capital call. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="cc-modal-overlay" onClick={onClose}>
       <div className="cc-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -75,13 +129,22 @@ const StartCapitalCallModal: FC<StartCapitalCallModalProps> = ({ isOpen, onClose
               <label>Target Amount (USD)</label>
               <div className="cc-input-wrapper">
                 <span className="cc-input-prefix">$</span>
-                <input type="text" placeholder="0.00" defaultValue="0.00" />
+                <input
+                  type="text"
+                  placeholder="0.00"
+                  value={targetAmount}
+                  onChange={(e) => setTargetAmount(e.target.value)}
+                />
               </div>
             </div>
             <div className="cc-modal-field">
               <label>Deadline Days</label>
               <div className="cc-input-wrapper">
-                <input type="number" defaultValue={10} />
+                <input
+                  type="number"
+                  value={deadlineDays}
+                  onChange={(e) => setDeadlineDays(Number(e.target.value))}
+                />
                 <span className="cc-input-suffix">Days</span>
               </div>
             </div>
@@ -90,41 +153,66 @@ const StartCapitalCallModal: FC<StartCapitalCallModalProps> = ({ isOpen, onClose
           {/* Institutional Partner Selection Section */}
           <div className="cc-modal-partners-section">
             <div className="cc-modal-partners-header">
-              <label>Select Institutional Partners</label>
-              <button className="cc-select-all-btn">Select All</button>
-            </div>
-
-            {/* Search Bar */}
-            <div className="cc-modal-search">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-              <input type="text" placeholder="Search partners by name or ID..." />
+              <label>Select Institutional Partners ({selectedPartners.length} selected)</label>
+              <button className="cc-select-all-btn" onClick={handleSelectAll}>
+                {selectedPartners.length === lps.length && lps.length > 0 ? 'Deselect All' : 'Select All'}
+              </button>
             </div>
 
             {/* Scrollable Partner List */}
             <div className="cc-modal-partner-list">
-              {dummyLPs.map((lp, idx) => (
-                <div key={idx} className="cc-partner-item">
-                  <div className="cc-partner-checkbox">
-                    <input type="checkbox" />
-                  </div>
-                  <div className="cc-partner-details">
-                    <div className="cc-partner-name">{lp.name}</div>
-                    <div className="cc-partner-meta">Committed: {lp.committed} • Last Call: {lp.lastCall}</div>
-                  </div>
-                  <div className="cc-partner-id">ID: {lp.id}</div>
+              {loadingLPs ? (
+                <div style={{ padding: '16px', color: '#9ca3af', textAlign: 'center' }}>
+                  Loading partners...
                 </div>
-              ))}
+              ) : lps.length === 0 ? (
+                <div style={{ padding: '16px', color: '#9ca3af', textAlign: 'center' }}>
+                  No LPs available.
+                </div>
+              ) : (
+                lps.map((lp) => (
+                  <div key={lp.lpId} className="cc-partner-item">
+                    <div className="cc-partner-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={selectedPartners.includes(lp.lpId)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedPartners([...selectedPartners, lp.lpId]);
+                          } else {
+                            setSelectedPartners(selectedPartners.filter(id => id !== lp.lpId));
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="cc-partner-details">
+                      <div className="cc-partner-name">{lp.lpId}</div>
+                      <div className="cc-partner-meta">
+                        Committed: ${lp.commitmentUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                    <div className="cc-partner-id">{lp.email}</div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
+
+          {error && (
+            <div style={{ color: '#ef4444', fontSize: '0.875rem', marginTop: '8px', padding: '0 4px' }}>
+              {error}
+            </div>
+          )}
         </div>
 
         {/* Footer Section */}
         <div className="cc-modal-footer">
-          <button className="cc-modal-cancel-btn" onClick={onClose}>Cancel</button>
-          <button className="cc-modal-start-btn" onClick={handleStart}>Start Capital Call</button>
+          <button className="cc-modal-cancel-btn" onClick={onClose} disabled={submitting}>
+            Cancel
+          </button>
+          <button className="cc-modal-start-btn" onClick={handleStart} disabled={submitting}>
+            {submitting ? 'Starting...' : 'Start Capital Call'}
+          </button>
         </div>
       </div>
     </div>

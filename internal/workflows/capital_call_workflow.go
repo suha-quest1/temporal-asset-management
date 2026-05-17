@@ -45,6 +45,7 @@ func CapitalCallWorkflow(ctx workflow.Context, input models.CapitalCallInput) (*
 		FundID:          input.FundID,
 		TargetAmountUSD: input.TargetAmountUSD,
 		LPList:          input.LPList,
+		DeadlineDays:    input.DeadlineDays,
 	}).Get(ctx, &issueResult)
 	if err != nil {
 		return nil, fmt.Errorf("issueCapitalCall: %w", err)

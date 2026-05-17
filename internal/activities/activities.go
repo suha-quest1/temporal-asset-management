@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.temporal.io/sdk/activity"
+	"time"
 
 	"github.com/vishworks/assetmgmt/internal/models"
 )
@@ -45,12 +46,16 @@ func (a *Activities) IssueCapitalCall(ctx context.Context, input models.IssueCap
 	}
 
 	if a.DB != nil {
+		// Calculate derived fields for UI
+		deadline := time.Now().Add(time.Duration(input.DeadlineDays) * 24 * time.Hour)
+		lpCompletionCount := fmt.Sprintf("0 / %d", len(input.LPList))
+
 		// Insert capital call record
 		_, err := a.DB.Exec(ctx,
-			`INSERT INTO capital_calls (call_id, fund_id, target_amount_usd, status)
-			 VALUES ($1, $2, $3, 'issued')
+			`INSERT INTO capital_calls (call_id, fund_id, target_amount_usd, status, received_amount_usd, lp_completion_count, deadline_date)
+			 VALUES ($1, $2, $3, 'issued', $4, $5, $6)
 			 ON CONFLICT (call_id) DO NOTHING`,
-			input.CallID, input.FundID, input.TargetAmountUSD,
+			input.CallID, input.FundID, input.TargetAmountUSD, 0.0, lpCompletionCount, deadline,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("insert capital_calls: %w", err)
