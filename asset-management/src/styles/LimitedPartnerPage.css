@@ -1,0 +1,309 @@
+/* ─── LP Dashboard Page ─────────────────────────────────────────────────── */
+/* Follows the exact same design tokens as CapitalCallPage.css               */
+
+.lp-page {
+  background-color: #f8f9fa;
+  min-height: 100vh;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #111827;
+}
+
+/* ── Navbar ── */
+.lp-navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 2rem;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.lp-nav-brand {
+  font-weight: 600;
+  font-size: 1rem;
+  color: #111827;
+}
+
+.lp-nav-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: none;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.lp-nav-back-btn:hover {
+  background-color: #f9fafb;
+  border-color: #d1d5db;
+}
+
+/* ── Main content ── */
+.lp-main-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2.5rem 2rem;
+}
+
+/* ── Header ── */
+.lp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.lp-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.lp-avatar {
+  width: 52px;
+  height: 52px;
+  background: linear-gradient(135deg, #5b53f9, #818cf8);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(91, 83, 249, 0.35);
+}
+
+.lp-page-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem 0;
+  letter-spacing: -0.025em;
+}
+
+.lp-page-subtitle {
+  color: #6b7280;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* ── Stats grid (reuses cc-stats-grid logic) ── */
+.lp-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.lp-stat-card {
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px -2px rgba(0, 0, 0, 0.025);
+}
+
+.lp-stat-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+}
+
+.lp-stat-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+/* ── Table container ── */
+.lp-table-container {
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  width: 100%;
+}
+
+.lp-table-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.lp-table-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.lp-table-count {
+  font-size: 0.8125rem;
+  color: #6b7280;
+  background-color: #f3f4f6;
+  border-radius: 9999px;
+  padding: 0.2rem 0.65rem;
+}
+
+.lp-table-wrapper {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.lp-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.lp-table th {
+  padding: 1rem 1.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background-color: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+.lp-table td {
+  padding: 1.125rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  vertical-align: middle;
+}
+
+.lp-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.lp-table tbody tr:hover {
+  background-color: #fafafa;
+}
+
+/* ── Empty state ── */
+.lp-empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: #9ca3af;
+}
+
+.lp-empty-icon {
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.lp-empty-state h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #6b7280;
+  margin: 0 0 0.5rem 0;
+}
+
+.lp-empty-state p {
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+/* ── Loading state ── */
+.lp-loading {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+/* ── LP status badge (extends cc-badge system) ── */
+.lp-badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.lp-badge-committed {
+  background-color: #dcfce7;
+  color: #16a34a;
+}
+
+.lp-badge-pending {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.lp-badge-defaulted {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.lp-badge-deferred {
+  background-color: #f3e8ff;
+  color: #9333ea;
+}
+
+/* ── Responsive breakpoints ── */
+@media (max-width: 900px) {
+  .lp-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .lp-main-content {
+    padding: 1.5rem 1rem;
+  }
+
+  .lp-navbar {
+    padding: 0.875rem 1rem;
+  }
+
+  .lp-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .lp-stat-value {
+    font-size: 1.375rem;
+  }
+
+  .lp-page-title {
+    font-size: 1.5rem;
+  }
+
+  .lp-table th,
+  .lp-table td {
+    padding: 0.875rem 1rem;
+  }
+}
+
+@media (max-width: 400px) {
+  .lp-stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+}

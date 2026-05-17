@@ -251,6 +251,69 @@ func main() {
 		c.JSON(http.StatusOK, lps)
 	})
 
+	// GET /api/lps/:lpId/capital-calls — returns all capital calls an LP participated in
+	r.GET("/api/lps/:lpId/capital-calls", func(c *gin.Context) {
+		lpID := c.Param("lpId")
+
+		rows, err := pool.Query(context.Background(),
+			`SELECT cc.call_id, cc.fund_id, cc.target_amount_usd, cc.received_amount_usd,
+			        COALESCE(cc.lp_completion_count, '0 / 0'), cc.deadline_date, cc.status,
+			        cl.commitment_usd, cl.draw_amount_usd, cl.status AS lp_status
+			 FROM capital_calls cc
+			 JOIN capital_call_lps cl ON cc.call_id = cl.call_id
+			 WHERE cl.lp_id = $1
+			 ORDER BY cc.created_at DESC`, lpID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		defer rows.Close()
+
+		var calls []map[string]interface{}
+		for rows.Next() {
+			var callId, fundId, callStatus, lpCompletion, lpStatus string
+			var targetAmt, receivedAmt float64
+			var commitmentUSD float64
+			var drawAmountUSD *float64
+			var deadline *time.Time
+
+			if err := rows.Scan(&callId, &fundId, &targetAmt, &receivedAmt, &lpCompletion,
+				&deadline, &callStatus, &commitmentUSD, &drawAmountUSD, &lpStatus); err != nil {
+				log.Printf("Failed to scan lp capital-calls row: %v", err)
+				continue
+			}
+
+			deadlineStr := ""
+			if deadline != nil {
+				deadlineStr = deadline.Format(time.RFC3339)
+			}
+
+			drawAmt := 0.0
+			if drawAmountUSD != nil {
+				drawAmt = *drawAmountUSD
+			}
+
+			calls = append(calls, map[string]interface{}{
+				"id":            callId,
+				"fund":          fundId,
+				"target":        targetAmt,
+				"received":      receivedAmt,
+				"lpCompletion":  lpCompletion,
+				"deadlineDate":  deadlineStr,
+				"status":        callStatus,
+				"commitmentUSD": commitmentUSD,
+				"drawAmountUSD": drawAmt,
+				"lpStatus":      lpStatus,
+			})
+		}
+
+		if calls == nil {
+			calls = []map[string]interface{}{}
+		}
+
+		c.JSON(http.StatusOK, calls)
+	})
+
 	// ─── Dashboard Stats ─────────────────────────────────────────────────────
 
 	// GET /api/dashboard/stats — returns aggregated stats for the dashboard
