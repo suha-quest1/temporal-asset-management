@@ -44,32 +44,10 @@ def generate():
     with open(json_path, "w") as f:
         json.dump(report, f, indent=2)
 
-    # Write a simple text report (substitute for PDF in the demo)
-    txt_path = os.path.join(REPORT_DIR, f"{call_id}.txt")
-    with open(txt_path, "w") as f:
-        f.write(f"{'='*60}\n")
-        f.write(f"  LIQUIDITY REPORT — {call_id}\n")
-        f.write(f"{'='*60}\n\n")
-        f.write(f"  Fund:            {fund_id}\n")
-        f.write(f"  Generated:       {report['generatedAt']}\n\n")
-        f.write(f"  Target Amount:   ${report['summary']['targetAmountUSD']:,.2f}\n")
-        f.write(f"  Total Committed: ${report['summary']['totalCommitted']:,.2f}\n")
-        f.write(f"  Gap:             ${report['summary']['gapUSD']:,.2f} "
-                f"({report['summary']['gapPercent']:.1f}%)\n")
-        f.write(f"  Bridge Used:     {report['summary']['bridgeTriggered']}\n\n")
-        f.write(f"  {'LP':<10} {'Status':<12} {'Amount':>14} {'Risk':>8}\n")
-        f.write(f"  {'-'*10} {'-'*12} {'-'*14} {'-'*8}\n")
-        for lp in report["lpDetails"]:
-            f.write(f"  {lp['lpId']:<10} {lp['status']:<12} "
-                    f"${lp.get('amountUSD',0):>12,.2f} "
-                    f"{lp.get('riskScore',0):>7.2f}\n")
-        f.write(f"\n{'='*60}\n")
-
     app.logger.info("Report generated: %s", json_path)
 
     return jsonify({
-        "reportPath": f"/reports/{call_id}.json",
-        "files": [json_path, txt_path],
+        "reportPath": f"/reports/{call_id}.json"
     })
 
 

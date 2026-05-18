@@ -42,6 +42,10 @@ func main() {
 	defer c.Close()
 
 	r := gin.Default()
+	
+	// Serve generated JSON reports directly
+	reportDir := envOrDefault("REPORT_DIR", "./reports")
+	r.Static("/reports", reportDir)
 
 	// ─── LP Responses & Signals ──────────────────────────────────────────────
 

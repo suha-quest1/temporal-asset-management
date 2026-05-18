@@ -4,13 +4,15 @@ import CapitalCallPage from './pages/CapitalCallPage'
 import LoginPage from './pages/LoginPage'
 import LimitedPartnerPage from './pages/LimitedPartnerPage'
 import LPRiskTrackerPage from './pages/LPRiskTrackerPage'
+import ReportViewerPage from './pages/ReportViewerPage'
 import './styles/GPPortalLayout.css'
 
-type Page = 'login' | 'gp-calls' | 'gp-lps' | 'lp'
+type Page = 'login' | 'gp-calls' | 'gp-lps' | 'lp' | 'report'
 
 function App() {
   const [page, setPage] = useState<Page>('login')
   const [activeLPId, setActiveLPId] = useState<string>('')
+  const [activeReportCallId, setActiveReportCallId] = useState<string>('')
 
   if (page.startsWith('gp-')) {
     const isCallsView = page === 'gp-calls';
@@ -46,10 +48,19 @@ function App() {
 
         {/* Main Content Area */}
         <main className="gp-content">
-          {isCallsView && <CapitalCallPage />}
+          {isCallsView && <CapitalCallPage onViewReport={(callId) => { setActiveReportCallId(callId); setPage('report'); }} />}
           {isLpsView && <LPRiskTrackerPage />}
         </main>
       </div>
+    )
+  }
+
+  if (page === 'report' && activeReportCallId) {
+    return (
+      <ReportViewerPage
+        callId={activeReportCallId}
+        onBack={() => { setActiveReportCallId(''); setPage('gp-calls'); }}
+      />
     )
   }
 

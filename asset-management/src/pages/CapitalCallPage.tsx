@@ -5,7 +5,11 @@ import CapitalCallRow from '../components/CapitalCallRow';
 import type { CapitalCall } from '../components/CapitalCallRow';
 import { getCapitalCalls } from '../api/CapitalCall';
 
-const CapitalCallPage = () => {
+interface CapitalCallPageProps {
+  onViewReport?: (callId: string) => void;
+}
+
+const CapitalCallPage = ({ onViewReport }: CapitalCallPageProps) => {
   const [activeTab, setActiveTab] = useState('All Calls');
   // State for controlling the visibility of the "Start Capital Call" modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -125,7 +129,7 @@ const CapitalCallPage = () => {
               </thead>
               <tbody>
                 {calls.map((call) => (
-                  <CapitalCallRow key={call.id} call={call} />
+                  <CapitalCallRow key={call.id} call={call} onViewReport={onViewReport} />
                 ))}
               </tbody>
             </table>
