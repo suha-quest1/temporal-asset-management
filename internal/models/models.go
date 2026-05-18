@@ -149,3 +149,10 @@ type EmitReportInput struct {
 	FundID     string            `json:"fundId"`
 	CallResult CapitalCallResult `json:"callResult"`
 }
+
+type UpdateLiveAggregatesInput struct {
+	CallID    string  `json:"callId"`
+	LPID      string  `json:"lpId"`
+	Status    string  `json:"status"`
+	AmountUSD float64 `json:"amountUSD"`
+}

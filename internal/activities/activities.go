@@ -10,21 +10,22 @@ import (
 	"net/http"
 	"sort"
 
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.temporal.io/sdk/activity"
-	"time"
 
 	"github.com/vishworks/assetmgmt/internal/models"
 )
 
 // Activities holds shared dependencies for all activities.
 type Activities struct {
-	DB             *pgxpool.Pool
-	SESURL         string
-	MLScorerURL    string
-	CreditFacURL   string
-	ReportGenURL   string
+	DB           *pgxpool.Pool
+	SESURL       string
+	MLScorerURL  string
+	CreditFacURL string
+	ReportGenURL string
 }
 
 // IssueCapitalCall creates the call record in the fund admin system and
@@ -172,6 +173,16 @@ func (a *Activities) PredictDefaultRisk(ctx context.Context, input models.Predic
 	for i := range result {
 		if score, ok := scoreMap[result[i].LPID]; ok {
 			result[i].RiskScore = score
+
+			if a.DB != nil {
+				_, err := a.DB.Exec(ctx,
+					`UPDATE capital_call_lps SET risk_score = $1 WHERE call_id = $2 AND lp_id = $3`,
+					score, input.CallID, result[i].LPID,
+				)
+				if err != nil {
+					logger.Warn("Failed to persist risk score", "lpId", result[i].LPID, "error", err)
+				}
+			}
 		}
 	}
 
@@ -428,4 +439,59 @@ func NewActivities(pool *pgxpool.Pool, sesURL, mlScorerURL, creditFacURL, report
 // GenerateID returns a new unique identifier for use in activity results.
 func GenerateID() string {
 	return uuid.New().String()
+}
+
+// UpdateLiveAggregates incrementally updates the database projection of the
+// capital call to reflect the latest LP responses in real-time, driving UI dashboards.
+func (a *Activities) UpdateLiveAggregates(ctx context.Context, input models.UpdateLiveAggregatesInput) error {
+	logger := activity.GetLogger(ctx)
+	logger.Info("Updating live DB projections", "callId", input.CallID, "lpId", input.LPID, "status", input.Status, "amount", input.AmountUSD)
+
+	if a.DB == nil {
+		return nil
+	}
+
+	// 1. Update the LP's status and draw amount (this immediately changes the UI for this LP)
+	_, err := a.DB.Exec(ctx,
+		`UPDATE capital_call_lps SET status = $1, draw_amount_usd = $2 WHERE call_id = $3 AND lp_id = $4`,
+		input.Status, input.AmountUSD, input.CallID, input.LPID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update capital_call_lps projection: %w", err)
+	}
+
+	// 2. Recompute received liquidity: sum draw_amount_usd for committed LPs only.
+	_, err = a.DB.Exec(ctx, `
+		UPDATE capital_calls
+		SET received_amount_usd = (
+			SELECT COALESCE(SUM(draw_amount_usd), 0)
+			FROM capital_call_lps
+			WHERE call_id = $1
+			  AND status = 'committed'
+		)
+		WHERE call_id = $1
+	`, input.CallID)
+	if err != nil {
+		return fmt.Errorf("failed to update capital_calls.received_amount_usd: %w", err)
+	}
+
+	// 3. Recompute LP completion ratio: committed count / total count.
+	_, err = a.DB.Exec(ctx, `
+		UPDATE capital_calls
+		SET lp_completion_count = (
+			SELECT CAST(
+				(SELECT COUNT(*) FROM capital_call_lps WHERE call_id = $1 AND status = 'committed')
+				AS TEXT
+			) || ' / ' || CAST(
+				(SELECT COUNT(*) FROM capital_call_lps WHERE call_id = $1)
+				AS TEXT
+			)
+		)
+		WHERE call_id = $1
+	`, input.CallID)
+	if err != nil {
+		return fmt.Errorf("failed to update capital_calls.lp_completion_count: %w", err)
+	}
+
+	return nil
 }

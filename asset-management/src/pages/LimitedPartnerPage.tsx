@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import '../styles/LimitedPartnerPage.css';
+import LPContributionModal from '../components/LPContributionModal';
 
 interface LPCall {
   id: string;
@@ -43,7 +44,10 @@ const lpStatusBadgeClass = (s: string) => {
   switch (s) {
     case 'committed': return 'lp-badge lp-badge-committed';
     case 'defaulted':  return 'lp-badge lp-badge-defaulted';
+    case 'enforced':   return 'lp-badge lp-badge-defaulted';
     case 'deferred':   return 'lp-badge lp-badge-deferred';
+    case 'submitted':  return 'lp-badge lp-badge-pending';
+    case 'under_review': return 'lp-badge lp-badge-pending';
     default:           return 'lp-badge lp-badge-pending';
   }
 };
@@ -65,6 +69,8 @@ export default function LimitedPartnerPage({ lpId, onBack }: LimitedPartnerPageP
   const [calls, setCalls] = useState<LPCall[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedCall, setSelectedCall] = useState<LPCall | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,7 +96,7 @@ export default function LimitedPartnerPage({ lpId, onBack }: LimitedPartnerPageP
     load();
     const interval = setInterval(load, 10_000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [lpId]);
+  }, [lpId, refreshTrigger]);
 
   // ── Derived stats ────────────────────────────────────────────────────────
   const totalCommitment = calls.reduce((s, c) => s + c.commitmentUSD, 0);
@@ -192,11 +198,12 @@ export default function LimitedPartnerPage({ lpId, onBack }: LimitedPartnerPageP
                     <th>Deadline</th>
                     <th>Call Status</th>
                     <th>My Status</th>
+                    <th style={{ textAlign: 'right' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {calls.map(call => (
-                    <LPCallRow key={call.id} call={call} />
+                    <LPCallRow key={call.id} call={call} onRespond={() => setSelectedCall(call)} />
                   ))}
                 </tbody>
               </table>
@@ -204,13 +211,30 @@ export default function LimitedPartnerPage({ lpId, onBack }: LimitedPartnerPageP
           )}
         </div>
       </main>
+
+      {selectedCall && (
+        <LPContributionModal
+          isOpen={true}
+          onClose={() => setSelectedCall(null)}
+          onSuccess={() => {
+            setSelectedCall(null);
+            setRefreshTrigger(prev => prev + 1);
+          }}
+          callId={selectedCall.id}
+          lpId={lpId}
+          fundName={selectedCall.fund}
+          targetAmount={selectedCall.target}
+          drawAmountUSD={selectedCall.drawAmountUSD}
+          deadlineDate={selectedCall.deadlineDate}
+        />
+      )}
     </div>
   );
 }
 
 // ── Row sub-component ─────────────────────────────────────────────────────────
 
-function LPCallRow({ call }: { call: LPCall }) {
+function LPCallRow({ call, onRespond }: { call: LPCall, onRespond: () => void }) {
   const deadlineStr = fmtDeadline(call.deadlineDate);
   const remaining  = daysRemaining(call.deadlineDate);
   const isPastDue  = remaining === 'Past due';
@@ -243,6 +267,27 @@ function LPCallRow({ call }: { call: LPCall }) {
         <span className={lpStatusBadgeClass(call.lpStatus)}>
           {call.lpStatus.toUpperCase()}
         </span>
+      </td>
+      <td style={{ textAlign: 'right' }}>
+        {call.lpStatus === 'pending' && call.status === 'issued' ? (
+          <button 
+            onClick={onRespond}
+            style={{
+              background: '#5b53f9',
+              color: 'white',
+              border: 'none',
+              padding: '6px 12px',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '0.875rem',
+              fontWeight: 500
+            }}
+          >
+            Respond
+          </button>
+        ) : (
+          <span style={{ color: '#9ca3af', fontSize: '0.875rem' }}>—</span>
+        )}
       </td>
     </tr>
   );

@@ -1,0 +1,87 @@
+/* src/components/LPContributionModal.css */
+/* Uses many inherited classes from StartCapitalCallModal.css (.cc-modal-*) */
+
+.lp-contrib-modal {
+  max-width: 500px;
+}
+
+.lp-contrib-summary {
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.lp-contrib-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.lp-contrib-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.lp-contrib-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.lp-contrib-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.lp-contrib-highlight-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lp-contrib-highlight-value {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #5b53f9;
+}
+
+.lp-contrib-input-field {
+  margin-top: 1rem;
+}
+
+.lp-contrib-input-field input {
+  font-size: 1.125rem;
+  font-weight: 500;
+}
+
+.lp-contrib-warning {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: #d97706; /* Amber color for subtle warning */
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.lp-contrib-warning::before {
+  content: "!";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: #fef3c7;
+  color: #d97706;
+  font-weight: bold;
+  font-size: 0.7rem;
+}

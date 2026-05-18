@@ -58,6 +58,14 @@ func LPResponseWorkflow(ctx workflow.Context, input models.LPResponseInput) (*mo
 
 		if committed {
 			logger.Info("LP committed", "lpId", input.LPID, "amount", commitment.AmountUSD)
+			
+			_ = workflow.ExecuteActivity(actCtx, act.UpdateLiveAggregates, models.UpdateLiveAggregatesInput{
+				CallID:    input.CallID,
+				LPID:      input.LPID,
+				Status:    "committed",
+				AmountUSD: commitment.AmountUSD,
+			}).Get(ctx, nil)
+			
 			return &models.LPResponse{
 				LPID:      input.LPID,
 				Status:    "committed",
@@ -94,6 +102,14 @@ func LPResponseWorkflow(ctx workflow.Context, input models.LPResponseInput) (*mo
 
 		if committed {
 			logger.Info("LP committed (late)", "lpId", input.LPID, "amount", commitment.AmountUSD)
+			
+			_ = workflow.ExecuteActivity(actCtx, act.UpdateLiveAggregates, models.UpdateLiveAggregatesInput{
+				CallID:    input.CallID,
+				LPID:      input.LPID,
+				Status:    "committed",
+				AmountUSD: commitment.AmountUSD,
+			}).Get(ctx, nil)
+			
 			return &models.LPResponse{
 				LPID:      input.LPID,
 				Status:    "committed",
@@ -104,6 +120,14 @@ func LPResponseWorkflow(ctx workflow.Context, input models.LPResponseInput) (*mo
 
 	// LP never responded — defaulted
 	logger.Info("LP defaulted", "lpId", input.LPID)
+	
+	_ = workflow.ExecuteActivity(actCtx, act.UpdateLiveAggregates, models.UpdateLiveAggregatesInput{
+		CallID:    input.CallID,
+		LPID:      input.LPID,
+		Status:    "defaulted",
+		AmountUSD: 0,
+	}).Get(ctx, nil)
+	
 	return &models.LPResponse{
 		LPID:   input.LPID,
 		Status: "defaulted",

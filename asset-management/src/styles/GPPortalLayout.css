@@ -1,0 +1,116 @@
+.gp-layout {
+  display: flex;
+  min-height: 100vh;
+  width: 100vw;
+  background-color: #0f172a; /* Fallback for dark theme */
+}
+
+.gp-sidebar {
+  width: 250px;
+  background: rgba(17, 24, 39, 0.8);
+  backdrop-filter: blur(12px);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 0;
+  z-index: 10;
+}
+
+.gp-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0 1rem;
+  flex-grow: 1;
+}
+
+.gp-sidebar-item {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  text-align: left;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.gp-sidebar-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #f3f4f6;
+}
+
+.gp-sidebar-item.active {
+  background: rgba(91, 83, 249, 0.15); /* #5b53f9 accent */
+  color: #818cf8;
+  border-left: 3px solid #5b53f9;
+}
+
+.gp-sidebar-footer {
+  padding: 1rem;
+  margin-top: auto;
+}
+
+.gp-sidebar-footer button {
+  width: 100%;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  color: #d1d5db;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.gp-sidebar-footer button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.gp-content {
+  flex-grow: 1;
+  position: relative;
+  overflow-y: auto;
+  max-height: 100vh;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .gp-layout {
+    flex-direction: column;
+  }
+
+  .gp-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex-direction: row;
+    padding: 0.5rem;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .gp-sidebar-nav {
+    flex-direction: row;
+    padding: 0;
+  }
+
+  .gp-sidebar-item {
+    padding: 0.5rem 1rem;
+  }
+  
+  .gp-sidebar-footer {
+    padding: 0;
+    margin-top: 0;
+  }
+
+  .gp-sidebar-footer button {
+    padding: 0.5rem 1rem;
+    width: auto;
+  }
+}

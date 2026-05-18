@@ -120,10 +120,10 @@ func main() {
 	// Backend generates the callId; frontend provides fund, target, LPs, deadline.
 	r.POST("/api/capital-calls", func(ctx *gin.Context) {
 		var body struct {
-			FundID          string       `json:"fundId" binding:"required"`
-			TargetAmountUSD float64      `json:"targetAmountUSD" binding:"required"`
-			LPList          []models.LP  `json:"lpList" binding:"required"`
-			DeadlineDays    int          `json:"deadlineDays"`
+			FundID          string      `json:"fundId" binding:"required"`
+			TargetAmountUSD float64     `json:"targetAmountUSD" binding:"required"`
+			LPList          []models.LP `json:"lpList" binding:"required"`
+			DeadlineDays    int         `json:"deadlineDays"`
 		}
 		if err := ctx.ShouldBindJSON(&body); err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -165,6 +165,64 @@ func main() {
 	})
 
 	// ─── Capital Calls List (DB-driven) ─────────────────────────────────────
+
+	// GET /api/capital-calls/risky-lps — returns all LPs with risk score > 0.7 from active calls
+	r.GET("/api/capital-calls/risky-lps", func(c *gin.Context) {
+		rows, err := pool.Query(context.Background(),
+			`SELECT cl.call_id, cl.lp_id, cl.risk_score,
+			        cl.commitment_usd, cl.draw_amount_usd, cl.status AS lp_status,
+			        cc.status AS call_status, cc.created_at
+			 FROM capital_call_lps cl
+			 JOIN capital_calls cc ON cl.call_id = cc.call_id
+			 WHERE cc.status = 'issued'
+			   AND cl.risk_score > 0.7
+			 ORDER BY cl.risk_score DESC`)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		defer rows.Close()
+
+		var lps []map[string]interface{}
+		for rows.Next() {
+			var callId, lpId, lpStatus, callStatus string
+			var riskScore, commitmentUSD float64
+			var drawAmountUSD *float64
+			var flaggedAt *time.Time
+
+			if err := rows.Scan(&callId, &lpId, &riskScore, &commitmentUSD, &drawAmountUSD, &lpStatus, &callStatus, &flaggedAt); err != nil {
+				log.Printf("Failed to scan risky_lps row: %v", err)
+				continue
+			}
+
+			flaggedAtStr := ""
+			if flaggedAt != nil {
+				flaggedAtStr = flaggedAt.Format(time.RFC3339)
+			}
+
+			drawAmt := 0.0
+			if drawAmountUSD != nil {
+				drawAmt = *drawAmountUSD
+			}
+
+			lps = append(lps, map[string]interface{}{
+				"callId":        callId,
+				"lpId":          lpId,
+				"riskScore":     riskScore,
+				"commitmentUSD": commitmentUSD,
+				"drawAmountUSD": drawAmt,
+				"lpStatus":      lpStatus,
+				"callStatus":    callStatus,
+				"flaggedAt":     flaggedAtStr,
+			})
+		}
+
+		if lps == nil {
+			lps = []map[string]interface{}{}
+		}
+
+		c.JSON(http.StatusOK, lps)
+	})
 
 	// GET /api/capital-calls — returns all capital calls from DB
 	r.GET("/api/capital-calls", func(c *gin.Context) {
