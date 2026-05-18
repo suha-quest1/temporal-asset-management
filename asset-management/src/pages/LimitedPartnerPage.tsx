@@ -40,15 +40,16 @@ const daysRemaining = (iso: string): string => {
   return diff > 0 ? `${diff}d remaining` : 'Past due';
 };
 
+// lpStatusBadgeClass maps the three canonical DB statuses to badge styles.
+// Canonical statuses: "pending" | "committed" | "defaulted"
+// "under_review" is a transient UI-only state for risky LPs awaiting GP review;
+// it is never persisted as a canonical DB status.
 const lpStatusBadgeClass = (s: string) => {
   switch (s) {
-    case 'committed': return 'lp-badge lp-badge-committed';
-    case 'defaulted':  return 'lp-badge lp-badge-defaulted';
-    case 'enforced':   return 'lp-badge lp-badge-defaulted';
-    case 'deferred':   return 'lp-badge lp-badge-deferred';
-    case 'submitted':  return 'lp-badge lp-badge-pending';
-    case 'under_review': return 'lp-badge lp-badge-pending';
-    default:           return 'lp-badge lp-badge-pending';
+    case 'committed':    return 'lp-badge lp-badge-committed';
+    case 'defaulted':   return 'lp-badge lp-badge-defaulted';
+    case 'under_review': return 'lp-badge lp-badge-pending'; // transient UI-only state
+    default:            return 'lp-badge lp-badge-pending';  // covers "pending"
   }
 };
 

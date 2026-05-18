@@ -66,6 +66,8 @@ func (s *CapitalCallWorkflowTestSuite) TestAllLPsCommit() {
 	)
 	s.env.OnActivity("NotifyLPs", mock.Anything, mock.Anything).Return(nil)
 	s.env.OnActivity("AutoFollowUp", mock.Anything, mock.Anything).Return(nil).Maybe()
+	// UpdateLiveAggregates is called by child workflows on commit/default.
+	s.env.OnActivity("UpdateLiveAggregates", mock.Anything, mock.Anything).Return(nil).Maybe()
 
 	s.env.OnActivity("AggregateLiquidity", mock.Anything, mock.Anything).Return(
 		&models.AggregateLiquidityResult{
@@ -125,6 +127,8 @@ func (s *CapitalCallWorkflowTestSuite) TestBridgeTriggered() {
 	)
 	s.env.OnActivity("NotifyLPs", mock.Anything, mock.Anything).Return(nil)
 	s.env.OnActivity("AutoFollowUp", mock.Anything, mock.Anything).Return(nil).Maybe()
+	// UpdateLiveAggregates is called by child workflows on commit/default.
+	s.env.OnActivity("UpdateLiveAggregates", mock.Anything, mock.Anything).Return(nil).Maybe()
 
 	// LP-03 defaults → 30% gap
 	s.env.OnActivity("AggregateLiquidity", mock.Anything, mock.Anything).Return(
@@ -189,6 +193,8 @@ func (s *CapitalCallWorkflowTestSuite) TestGPEscalation() {
 	)
 	s.env.OnActivity("NotifyLPs", mock.Anything, mock.Anything).Return(nil)
 	s.env.OnActivity("AutoFollowUp", mock.Anything, mock.Anything).Return(nil).Maybe()
+	// UpdateLiveAggregates is called by child workflows on commit/default.
+	s.env.OnActivity("UpdateLiveAggregates", mock.Anything, mock.Anything).Return(nil).Maybe()
 
 	s.env.OnActivity("AggregateLiquidity", mock.Anything, mock.Anything).Return(
 		&models.AggregateLiquidityResult{TotalCommitted: 10_000_000, GapUSD: 0, GapPercent: 0}, nil,
@@ -256,6 +262,8 @@ func (s *CapitalCallWorkflowTestSuite) TestDefaultedHighRiskLPNotEscalated() {
 	)
 	s.env.OnActivity("NotifyLPs", mock.Anything, mock.Anything).Return(nil)
 	s.env.OnActivity("AutoFollowUp", mock.Anything, mock.Anything).Return(nil).Maybe()
+	// UpdateLiveAggregates is called by child workflows on commit/default.
+	s.env.OnActivity("UpdateLiveAggregates", mock.Anything, mock.Anything).Return(nil).Maybe()
 
 	s.env.OnActivity("AggregateLiquidity", mock.Anything, mock.Anything).Return(
 		&models.AggregateLiquidityResult{TotalCommitted: 7_000_000, GapUSD: 3_000_000, GapPercent: 30.0}, nil,
@@ -306,7 +314,11 @@ func (s *CapitalCallWorkflowTestSuite) TestDefaultedHighRiskLPNotEscalated() {
 	}
 }
 
-// TestGPEnforce verifies that "enforce" marks the LP as defaulted.
+// TestGPEnforce verifies the correct enforce semantics:
+// GP enforcement is a governance/compliance warning action only.
+// The LP's status remains "committed", the contribution amount is unchanged,
+// and a warning email is sent via SendEnforcementWarning.
+// Enforce does NOT remove the LP from settlement or reduce aggregate liquidity.
 func (s *CapitalCallWorkflowTestSuite) TestGPEnforce() {
 	input := testInput()
 
@@ -315,6 +327,8 @@ func (s *CapitalCallWorkflowTestSuite) TestGPEnforce() {
 	)
 	s.env.OnActivity("NotifyLPs", mock.Anything, mock.Anything).Return(nil)
 	s.env.OnActivity("AutoFollowUp", mock.Anything, mock.Anything).Return(nil).Maybe()
+	// UpdateLiveAggregates is called by child workflows on commit/default.
+	s.env.OnActivity("UpdateLiveAggregates", mock.Anything, mock.Anything).Return(nil).Maybe()
 
 	s.env.OnActivity("AggregateLiquidity", mock.Anything, mock.Anything).Return(
 		&models.AggregateLiquidityResult{TotalCommitted: 10_000_000, GapUSD: 0, GapPercent: 0}, nil,
@@ -333,6 +347,9 @@ func (s *CapitalCallWorkflowTestSuite) TestGPEnforce() {
 	)
 
 	s.env.OnActivity("EscalateToGP", mock.Anything, mock.Anything).Return(nil)
+	// SendEnforcementWarning sends the compliance warning email; it must be called
+	// when GP chooses "enforce". It does NOT alter the LP state.
+	s.env.OnActivity("SendEnforcementWarning", mock.Anything, mock.Anything).Return(nil)
 	s.env.OnActivity("SettleAndReconcile", mock.Anything, mock.Anything).Return(nil)
 	s.env.OnActivity("EmitLiquidityReport", mock.Anything, mock.Anything).Return("/reports/test-call-1.json", nil)
 
@@ -345,7 +362,7 @@ func (s *CapitalCallWorkflowTestSuite) TestGPEnforce() {
 			models.LPCommitmentSignal{LPID: "lp-03", AmountUSD: 3_000_000})
 	}, 0)
 
-	// GP enforces → LP-02 becomes defaulted
+	// GP enforces → compliance warning email sent; LP-02 stays committed
 	s.env.RegisterDelayedCallback(func() {
 		s.env.SignalWorkflow(SignalGPDecision, models.GPDecisionSignal{
 			LPID: "lp-02", Action: "enforce", GPName: "TestGP",
@@ -360,10 +377,14 @@ func (s *CapitalCallWorkflowTestSuite) TestGPEnforce() {
 	var result models.CapitalCallResult
 	require.NoError(s.T(), s.env.GetWorkflowResult(&result))
 
+	// Enforce is a governance-only action: LP-02 remains committed with its
+	// original contribution intact. Only true non-responders become defaulted.
 	for _, lp := range result.LPResponses {
 		if lp.LPID == "lp-02" {
-			require.Equal(s.T(), "defaulted", lp.Status)
-			require.Equal(s.T(), 0.0, lp.AmountUSD)
+			require.Equal(s.T(), "committed", lp.Status,
+				"enforce should keep LP status as committed")
+			require.Equal(s.T(), 3_000_000.0, lp.AmountUSD,
+				"enforce should not zero out the LP contribution")
 		}
 	}
 }

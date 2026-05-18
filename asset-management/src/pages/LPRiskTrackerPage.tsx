@@ -126,32 +126,50 @@ const LPRiskTrackerPage = () => {
         </div>
       </main>
 
-      {/* Review Modal */}
+      {/* GP Decision Modal */}
       {selectedLP && (
         <div className="cc-modal-overlay">
           <div className="cc-modal-content">
             <div className="cc-modal-header">
-              <h2>Review High-Risk LP: {selectedLP.lpId}</h2>
+              <h2>GP Review: High-Risk LP — {selectedLP.lpId}</h2>
               <button className="cc-modal-close" onClick={closeModal}>×</button>
             </div>
             <div className="cc-modal-body">
               <div className="lpr-modal-warning">
-                <strong>WARNING:</strong> This LP has been flagged by the predictive ML pipeline with a high probability of default. Please decide on enforcement actions.
+                <strong>ML Risk Alert:</strong> This LP has been flagged with a high probability of default
+                by the predictive ML pipeline. Review the details below and choose a governance action.
               </div>
               <div className="lpr-modal-details">
-                <div className="lpr-detail-row"><span>Call ID:</span> <strong>{selectedLP.callId}</strong></div>
-                <div className="lpr-detail-row"><span>Risk Score:</span> <strong style={{color: '#dc2626'}}>{(selectedLP.riskScore * 10).toFixed(1)}/10</strong></div>
-                <div className="lpr-detail-row"><span>Status:</span> <strong>{selectedLP.lpStatus.toUpperCase()}</strong></div>
-                <div className="lpr-detail-row"><span>Total Commitment:</span> <strong>{currencyFmt.format(selectedLP.commitmentUSD)}</strong></div>
-                <div className="lpr-detail-row"><span>Amount Due:</span> <strong>{currencyFmt.format(selectedLP.drawAmountUSD)}</strong></div>
+                <div className="lpr-detail-row">
+                  <span>Call ID</span>
+                  <strong>{selectedLP.callId}</strong>
+                </div>
+                <div className="lpr-detail-row">
+                  <span>Risk Score</span>
+                  <strong style={{ color: '#dc2626' }}>{(selectedLP.riskScore * 10).toFixed(1)} / 10</strong>
+                </div>
+                <div className="lpr-detail-row">
+                  <span>LP Status</span>
+                  <strong>{selectedLP.lpStatus.toUpperCase()}</strong>
+                </div>
+                <div className="lpr-detail-row">
+                  <span>Total Commitment</span>
+                  <strong>{currencyFmt.format(selectedLP.commitmentUSD)}</strong>
+                </div>
+                <div className="lpr-detail-row">
+                  <span>Amount Due (Pro-Rata)</span>
+                  <strong>{currencyFmt.format(selectedLP.drawAmountUSD)}</strong>
+                </div>
               </div>
             </div>
             <div className="cc-modal-footer">
+              {/* Waive: accept the risky contribution, workflow continues normally */}
               <button className="lpr-action-waive" onClick={() => handleAction('waive')}>
                 Waive Warning
               </button>
+              {/* Enforce: send compliance email warning; contribution remains intact */}
               <button className="lpr-action-enforce" onClick={() => handleAction('enforce')}>
-                Enforce Default
+                Enforce Warning
               </button>
             </div>
           </div>

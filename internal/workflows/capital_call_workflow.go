@@ -168,18 +168,34 @@ func CapitalCallWorkflow(ctx workflow.Context, input models.CapitalCallInput) (*
 	}
 
 	// Wait for a GP decision signal for each escalated LP.
+	// GP enforcement is a governance/compliance action only:
+	//   - "waive"  → accept the risky commitment; no further action required.
+	//   - "enforce" → send a warning/compliance email via SES; contribution stays
+	//                 committed and all aggregates remain unchanged.
+	// In both cases the LP status remains "committed" and the contribution amount
+	// is never mutated. Only true non-responders (deadline timeout) become "defaulted".
 	if len(highRiskIndices) > 0 {
 		gpDecisionCh := workflow.GetSignalChannel(ctx, SignalGPDecision)
 		for range highRiskIndices {
 			var decision models.GPDecisionSignal
 			gpDecisionCh.Receive(ctx, &decision)
 			logger.Info("GP decision received", "lpId", decision.LPID, "action", decision.Action)
-			for i := range lpResponses {
-				if lpResponses[i].LPID == decision.LPID && decision.Action == "enforce" {
-					lpResponses[i].Status = "defaulted"
-					lpResponses[i].AmountUSD = 0
+
+			if decision.Action == "enforce" {
+				// Send a compliance/enforcement warning email via mock SES.
+				// The LP's contribution, status, and all aggregate totals are preserved.
+				for _, lp := range input.LPList {
+					if lp.LPID == decision.LPID {
+						_ = workflow.ExecuteActivity(ctx, act.SendEnforcementWarning, models.EnforcementWarningInput{
+							CallID: input.CallID,
+							LP:     lp,
+							GPName: decision.GPName,
+						}).Get(ctx, nil)
+						break
+					}
 				}
 			}
+			// "waive" requires no action — the risky commitment is accepted as-is.
 		}
 	}
 

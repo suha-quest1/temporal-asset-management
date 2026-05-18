@@ -297,7 +297,8 @@ func (a *Activities) TriggerBridge(ctx context.Context, input models.TriggerBrid
 	return &result, nil
 }
 
-// EscalateToGP sends a Slack-style alert to the GP channel with LP summary.
+// EscalateToGP sends an alert to the GP channel with LP summary, prompting
+// a human review decision (waive or enforce).
 func (a *Activities) EscalateToGP(ctx context.Context, input models.EscalateToGPInput) error {
 	logger := activity.GetLogger(ctx)
 	logger.Info("Escalating to GP",
@@ -319,6 +320,67 @@ func (a *Activities) EscalateToGP(ctx context.Context, input models.EscalateToGP
 	_ = postJSON(ctx, a.SESURL+"/send", payload)
 	return nil
 }
+
+// SendEnforcementWarning sends a compliance/enforcement warning email to the LP
+// and notifies the GP channel via mock SES.
+//
+// IMPORTANT: This activity is a governance-only action. It does NOT:
+//   - change the LP's status (remains "committed")
+//   - alter the LP's contribution amount
+//   - recompute or reduce aggregate liquidity totals
+//
+// Enforcement means the GP has flagged the contribution for compliance review,
+// not that the LP's capital is removed from the call.
+func (a *Activities) SendEnforcementWarning(ctx context.Context, input models.EnforcementWarningInput) error {
+	logger := activity.GetLogger(ctx)
+	logger.Info("Sending enforcement warning",
+		"callId", input.CallID,
+		"lpId", input.LP.LPID,
+		"gpName", input.GPName,
+	)
+
+	gpName := input.GPName
+	if gpName == "" {
+		gpName = "GP Admin"
+	}
+
+	// Notify the LP that a compliance warning has been issued.
+	lpPayload := map[string]interface{}{
+		"to":      input.LP.Email,
+		"subject": fmt.Sprintf("[COMPLIANCE WARNING] Capital Call %s — Enforcement Notice", input.CallID),
+		"body": fmt.Sprintf(
+			"Dear LP %s, the General Partner (%s) has issued a compliance enforcement warning regarding "+
+				"your commitment of $%.2f on capital call %s. Your contribution remains recorded. "+
+				"Please contact the fund administrator for further guidance.",
+			input.LP.LPID, gpName, input.LP.CommitmentUSD, input.CallID,
+		),
+		"callId": input.CallID,
+		"lpId":   input.LP.LPID,
+		"type":   "enforcement_warning",
+	}
+	if err := postJSON(ctx, a.SESURL+"/send", lpPayload); err != nil {
+		logger.Warn("Failed to send enforcement warning to LP", "lpId", input.LP.LPID, "error", err)
+	}
+
+	// Also notify the GP channel for audit trail.
+	gpPayload := map[string]interface{}{
+		"to":      "gp-channel",
+		"subject": fmt.Sprintf("[ENFORCEMENT] Warning issued for LP %s on call %s", input.LP.LPID, input.CallID),
+		"body": fmt.Sprintf(
+			"Enforcement warning sent to LP %s by %s. Contribution of $%.2f remains committed. "+
+				"No liquidity adjustment made.",
+			input.LP.LPID, gpName, input.LP.CommitmentUSD,
+		),
+		"callId": input.CallID,
+		"lpId":   input.LP.LPID,
+		"gpName": gpName,
+		"type":   "enforcement_audit",
+	}
+	_ = postJSON(ctx, a.SESURL+"/send", gpPayload)
+
+	return nil
+}
+
 
 // SettleAndReconcile creates wire transfer stubs and double-entry ledger records.
 func (a *Activities) SettleAndReconcile(ctx context.Context, input models.SettleAndReconcileInput) error {

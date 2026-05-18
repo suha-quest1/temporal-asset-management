@@ -38,7 +38,7 @@ type CapitalCallResult struct {
 // LPResponse represents the outcome of a single LP's participation.
 type LPResponse struct {
 	LPID      string  `json:"lpId"`
-	Status    string  `json:"status"` // "committed" | "defaulted" | "deferred"
+	Status    string  `json:"status"` // "committed" | "defaulted"
 	AmountUSD float64 `json:"amountUSD"`
 	RiskScore float64 `json:"riskScore"`
 }
@@ -136,6 +136,15 @@ type EscalateToGPInput struct {
 	CallID string  `json:"callId"`
 	LP     LP      `json:"lp"`
 	Risk   float64 `json:"risk"`
+}
+
+// EnforcementWarningInput is the input to SendEnforcementWarning.
+// GP enforcement sends a compliance warning email but does NOT remove
+// the LP contribution or alter any aggregate liquidity totals.
+type EnforcementWarningInput struct {
+	CallID string `json:"callId"`
+	LP     LP     `json:"lp"`
+	GPName string `json:"gpName"`
 }
 
 type SettleAndReconcileInput struct {

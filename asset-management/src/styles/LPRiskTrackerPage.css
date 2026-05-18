@@ -15,7 +15,7 @@
   display: inline-block;
   padding: 4px 12px;
   border-radius: 9999px;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.875rem;
   box-shadow: 0 0 10px rgba(220, 38, 38, 0.4);
 }
@@ -36,62 +36,145 @@
   border-color: rgba(255, 255, 255, 0.4);
 }
 
-/* Modal specific styles extending cc-modal */
-.lpr-modal-warning {
-  background: rgba(220, 38, 38, 0.1);
-  border-left: 4px solid #dc2626;
-  padding: 1rem;
-  border-radius: 4px;
-  margin-bottom: 1.5rem;
-  color: #f87171;
-  font-size: 0.95rem;
+/* ── Modal: light-mode enterprise card ─────────────────────────────────────── */
+
+/* Override dark modal defaults for this page */
+.lpr-page .cc-modal-content {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 4px 16px rgba(0, 0, 0, 0.08);
+  color: #111827;
+  border-radius: 16px;
 }
 
+.lpr-page .cc-modal-header {
+  border-bottom: 1px solid #f3f4f6;
+  padding: 1.5rem 1.75rem 1.25rem;
+}
+
+.lpr-page .cc-modal-header h2 {
+  color: #111827;
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.lpr-page .cc-modal-close {
+  color: #6b7280;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.lpr-page .cc-modal-close:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.lpr-page .cc-modal-body {
+  padding: 1.5rem 1.75rem;
+}
+
+.lpr-page .cc-modal-footer {
+  padding: 1.25rem 1.75rem 1.5rem;
+  border-top: 1px solid #f3f4f6;
+  gap: 0.75rem;
+}
+
+/* Warning banner */
+.lpr-modal-warning {
+  background: #fef2f2;
+  border-left: 4px solid #dc2626;
+  padding: 0.875rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1.5rem;
+  color: #991b1b;
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+/* Detail rows */
 .lpr-modal-details {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
 }
 
 .lpr-detail-row {
   display: flex;
   justify-content: space-between;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #f3f4f6;
 }
 
+.lpr-detail-row:last-child {
+  border-bottom: none;
+}
+
+/* Label: medium-weight muted */
 .lpr-detail-row span {
-  color: #9ca3af;
+  color: #4b5563;
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 
+/* Value: bold, dark, highly readable */
 .lpr-detail-row strong {
-  color: #f3f4f6;
+  color: #111827;
+  font-size: 0.925rem;
+  font-weight: 700;
 }
+
+/* ── Action buttons ──────────────────────────────────────────────────────────── */
 
 .lpr-action-waive {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1.5px solid #86efac;
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
   cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
   transition: all 0.2s ease;
+  letter-spacing: 0.01em;
 }
 
 .lpr-action-waive:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: #dcfce7;
+  border-color: #4ade80;
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.2);
 }
 
 .lpr-action-enforce {
   background: #dc2626;
   color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
+  border: 1.5px solid #dc2626;
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
   cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
   transition: all 0.2s ease;
+  letter-spacing: 0.01em;
 }
 
 .lpr-action-enforce:hover {
-  background: #ef4444;
+  background: #b91c1c;
+  border-color: #b91c1c;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.25);
 }
