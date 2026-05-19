@@ -90,8 +90,15 @@ Wait until `temporal`, `postgres`, and `worker` show as healthy/running.
 ```bash
 docker compose --profile demo up demo-driver
 ```
+##OR
+###### 5. Access using the UI
 
-This pre-seeds 10 mock LPs and runs through the full capital call lifecycle:
+```bash
+cd asset-management && npm run dev
+```
+View the UI at: [localhost:5173](http://localhost:5173)
+
+10 mock LPs are pre-seeded:
 
 - **LP 01–07**: Commit immediately
 - **LP 08**: Commits but is flagged high-risk → GP escalation → GP waives
