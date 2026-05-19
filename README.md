@@ -90,8 +90,8 @@ Wait until `temporal`, `postgres`, and `worker` show as healthy/running.
 ```bash
 docker compose --profile demo up demo-driver
 ```
-##OR
-###### 5. Access using the UI
+## OR
+### 5. Access using the UI
 
 ```bash
 cd asset-management && npm run dev
