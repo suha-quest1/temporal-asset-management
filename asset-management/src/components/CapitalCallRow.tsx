@@ -1,4 +1,5 @@
 import type { FC } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export interface CapitalCall {
   id: string;
@@ -12,10 +13,10 @@ export interface CapitalCall {
 
 interface CapitalCallRowProps {
   call: CapitalCall;
-  onViewReport?: (callId: string) => void;
 }
 
-const CapitalCallRow: FC<CapitalCallRowProps> = ({ call, onViewReport }) => {
+const CapitalCallRow: FC<CapitalCallRowProps> = ({ call }) => {
+  const navigate = useNavigate();
   const targetFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(call.target);
   const receivedFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(call.received);
   
@@ -46,8 +47,16 @@ const CapitalCallRow: FC<CapitalCallRowProps> = ({ call, onViewReport }) => {
 
   const deadlineDateStr = deadline.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 
+  const handleRowClick = () => {
+    navigate(`/capital-calls/${call.id}`);
+  };
+
   return (
-    <tr>
+    <tr
+      onClick={handleRowClick}
+      style={{ cursor: 'pointer' }}
+      className="cc-table-row-clickable"
+    >
       <td>
         <div className="cc-cell-title">{call.id}</div>
         <div className="cc-cell-sub">{call.fund}</div>
@@ -73,24 +82,14 @@ const CapitalCallRow: FC<CapitalCallRowProps> = ({ call, onViewReport }) => {
           {displayStatus}
         </span>
       </td>
-      <td className="cc-action-cell">
-        {call.status === 'settled' && onViewReport ? (
-          <button 
-            className="cc-action-btn" 
-            style={{ width: 'auto', padding: '0.25rem 0.75rem', fontSize: '0.75rem', background: '#f3f4f6', borderRadius: '4px', fontWeight: 600, color: '#4f46e5' }}
-            onClick={() => onViewReport(call.id)}
-          >
-            View Report
-          </button>
-        ) : (
-          <button className="cc-action-btn">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="1"></circle>
-              <circle cx="12" cy="5" r="1"></circle>
-              <circle cx="12" cy="19" r="1"></circle>
-            </svg>
-          </button>
-        )}
+      <td className="cc-action-cell" onClick={e => e.stopPropagation()}>
+        <button
+          className="cc-action-btn"
+          style={{ width: 'auto', padding: '0.25rem 0.75rem', fontSize: '0.75rem', background: '#eef2ff', borderRadius: '4px', fontWeight: 600, color: '#4f46e5', border: '1px solid #c7d2fe' }}
+          onClick={() => navigate(`/capital-calls/${call.id}`)}
+        >
+          View Details
+        </button>
       </td>
     </tr>
   );

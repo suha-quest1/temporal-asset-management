@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import '../styles/LimitedPartnerPage.css';
 import LPContributionModal from '../components/LPContributionModal';
 
@@ -13,11 +14,6 @@ interface LPCall {
   commitmentUSD: number;
   drawAmountUSD: number;
   lpStatus: string;
-}
-
-interface LimitedPartnerPageProps {
-  lpId: string;
-  onBack: () => void;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -66,12 +62,19 @@ const avatarInitials = (id: string) =>
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export default function LimitedPartnerPage({ lpId, onBack }: LimitedPartnerPageProps) {
+export default function LimitedPartnerPage() {
+  const { lpId } = useParams() as { lpId: string };
+  const navigate = useNavigate();
   const [calls, setCalls] = useState<LPCall[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedCall, setSelectedCall] = useState<LPCall | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const [activeTab, setActiveTab] = useState('All Calls');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
 
   useEffect(() => {
     let cancelled = false;
@@ -105,18 +108,59 @@ export default function LimitedPartnerPage({ lpId, onBack }: LimitedPartnerPageP
   const activeCalls = calls.filter(c => c.status === 'issued').length;
   const completedCalls = calls.filter(c => c.status === 'settled').length;
 
+  // 1. Filter
+  const filteredCalls = calls.filter(call => {
+    if (activeTab === 'Active') return call.status === 'issued';
+    if (activeTab === 'Pending') return call.status === 'pending';
+    if (activeTab === 'Settled') return call.status === 'settled';
+    return true;
+  });
+
+  // 2. Search
+  const searchedCalls = filteredCalls.filter(call => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return call.id.toLowerCase().includes(q) || 
+           call.fund.toLowerCase().includes(q) || 
+           call.status.toLowerCase().includes(q) ||
+           call.lpStatus.toLowerCase().includes(q);
+  });
+
+  // 3. Paginate
+  const totalPages = Math.ceil(searchedCalls.length / itemsPerPage) || 1;
+  const validPage = Math.min(currentPage, totalPages);
+  
+  const startIndex = (validPage - 1) * itemsPerPage;
+  const paginatedCalls = searchedCalls.slice(startIndex, startIndex + itemsPerPage);
+
   return (
     <div className="lp-page">
       {/* ── Navbar ── */}
       <nav className="lp-navbar">
         <div className="lp-nav-brand">Intelligent Capital Call &amp; Liquidity Orchestration</div>
-        <button className="lp-nav-back-btn" onClick={onBack}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-            fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m15 18-6-6 6-6" />
-          </svg>
-          Back to Login
-        </button>
+        
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <div className="cc-search-container" style={{ position: 'relative', width: '280px' }}>
+            <svg style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input 
+              type="text" 
+              placeholder="Search calls..." 
+              style={{ width: '100%', padding: '0.5rem 1rem 0.5rem 2.25rem', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '0.875rem' }}
+              value={searchQuery}
+              onChange={e => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
+          <button className="lp-nav-back-btn" onClick={() => navigate('/')}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+            Log Out
+          </button>
+        </div>
       </nav>
 
       <main className="lp-main-content">
@@ -161,11 +205,29 @@ export default function LimitedPartnerPage({ lpId, onBack }: LimitedPartnerPageP
 
         {/* ── Table ── */}
         <div className="lp-table-container">
-          <div className="lp-table-header">
-            <h2 className="lp-table-title">Capital Call Participations</h2>
-            {!loading && (
-              <span className="lp-table-count">{calls.length} call{calls.length !== 1 ? 's' : ''}</span>
-            )}
+          <div className="lp-table-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <h2 className="lp-table-title">Capital Call Participations</h2>
+              {!loading && (
+                <span className="lp-table-count">{calls.length} call{calls.length !== 1 ? 's' : ''}</span>
+              )}
+            </div>
+            
+            <div className="cc-table-tabs" style={{ padding: 0, borderBottom: 'none', display: 'flex', gap: '1rem' }}>
+              {['All Calls', 'Active', 'Pending', 'Settled'].map(tab => (
+                <button 
+                  key={tab} 
+                  className={`cc-tab ${activeTab === tab ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveTab(tab);
+                    setCurrentPage(1);
+                  }}
+                  style={{ padding: '0.5rem', marginBottom: 0 }}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
           </div>
 
           {loading ? (
@@ -186,6 +248,10 @@ export default function LimitedPartnerPage({ lpId, onBack }: LimitedPartnerPageP
               <h3>No Capital Calls Found</h3>
               <p>{lpId.toUpperCase()} has not participated in any capital calls yet.</p>
             </div>
+          ) : searchedCalls.length === 0 ? (
+            <div className="lp-empty-state">
+              <p>No capital calls match your filter criteria.</p>
+            </div>
           ) : (
             <div className="lp-table-wrapper">
               <table className="lp-table">
@@ -203,11 +269,48 @@ export default function LimitedPartnerPage({ lpId, onBack }: LimitedPartnerPageP
                   </tr>
                 </thead>
                 <tbody>
-                  {calls.map(call => (
+                  {paginatedCalls.map(call => (
                     <LPCallRow key={call.id} call={call} onRespond={() => setSelectedCall(call)} />
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {searchedCalls.length > 0 && !loading && (
+            <div className="cc-pagination" style={{ borderTop: '1px solid #e5e7eb', padding: '1rem' }}>
+              <div className="cc-pagination-info">
+                Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, searchedCalls.length)} of {searchedCalls.length} Capital Calls
+              </div>
+              <div className="cc-pagination-controls">
+                <button 
+                  className="cc-page-btn cc-page-arrow" 
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={validPage === 1}
+                  style={{ opacity: validPage === 1 ? 0.5 : 1, cursor: validPage === 1 ? 'not-allowed' : 'pointer' }}
+                >
+                  &lt;
+                </button>
+                
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button 
+                    key={page} 
+                    className={`cc-page-btn ${validPage === page ? 'active' : ''}`}
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </button>
+                ))}
+
+                <button 
+                  className="cc-page-btn cc-page-arrow"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={validPage === totalPages}
+                  style={{ opacity: validPage === totalPages ? 0.5 : 1, cursor: validPage === totalPages ? 'not-allowed' : 'pointer' }}
+                >
+                  &gt;
+                </button>
+              </div>
             </div>
           )}
         </div>

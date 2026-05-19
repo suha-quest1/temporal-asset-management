@@ -1,10 +1,7 @@
 import { useState, useEffect } from 'react';
 import '../styles/LoginPage.css';
 
-interface LoginPageProps {
-  onLogin: () => void;
-  onLPLogin: (lpId: string) => void;
-}
+import { useNavigate } from 'react-router-dom';
 
 interface LP {
   lpId: string;
@@ -12,7 +9,8 @@ interface LP {
   email: string;
 }
 
-function LoginPage({ onLogin, onLPLogin }: LoginPageProps) {
+function LoginPage() {
+  const navigate = useNavigate();
   const [lps, setLPs] = useState<LP[]>([]);
   const [selectedLP, setSelectedLP] = useState('');
   const [lpError, setLPError] = useState('');
@@ -30,7 +28,7 @@ function LoginPage({ onLogin, onLPLogin }: LoginPageProps) {
       return;
     }
     setLPError('');
-    onLPLogin(selectedLP);
+    navigate(`/lp/${selectedLP}`);
   };
 
   return (
@@ -76,7 +74,7 @@ function LoginPage({ onLogin, onLPLogin }: LoginPageProps) {
           <h2>Enter as GP</h2>
           <p>Access your GP dashboard to manage funds, trigger capital calls, and monitor LP commitments in real-time.</p>
           <div className="login-spacer"></div>
-          <button className="login-primary-button" onClick={onLogin}>
+          <button className="login-primary-button" onClick={() => navigate('/capital-calls')}>
             Continue to GP Portal
             <svg className="login-arrow-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18"
               viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"

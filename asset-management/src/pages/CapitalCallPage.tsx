@@ -1,33 +1,25 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import '../styles/CapitalCallPage.css';
 import StartCapitalCallModal from '../components/StartCapitalCallModal';
 import CapitalCallRow from '../components/CapitalCallRow';
 import type { CapitalCall } from '../components/CapitalCallRow';
 import { getCapitalCalls } from '../api/CapitalCall';
 
-interface CapitalCallPageProps {
-  onViewReport?: (callId: string) => void;
-}
-
-const CapitalCallPage = ({ onViewReport }: CapitalCallPageProps) => {
+const CapitalCallPage = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('All Calls');
-  // State for controlling the visibility of the "Start Capital Call" modal
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
+
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  interface DashboardStats {
-    totalCalledYTD: string;
-    pendingLiquidity: string;
-    avgLPResponse: string;
-    activeCalls: string;
-  }
-
-  const [stats, setStats] = useState<DashboardStats>({
+  const [stats, setStats] = useState({
     totalCalledYTD: '—',
     pendingLiquidity: '—',
     avgLPResponse: '—',
     activeCalls: '—',
   });
-
   const [calls, setCalls] = useState<CapitalCall[]>([]);
 
   useEffect(() => {
@@ -57,6 +49,31 @@ const CapitalCallPage = ({ onViewReport }: CapitalCallPageProps) => {
     return () => clearInterval(interval);
   }, []);
 
+  // 1. Filter
+  const filteredCalls = calls.filter(call => {
+    if (activeTab === 'Active') return call.status === 'issued';
+    if (activeTab === 'Pending') return call.status === 'pending';
+    if (activeTab === 'Settled') return call.status === 'settled';
+    return true;
+  });
+
+  // 2. Search
+  const searchedCalls = filteredCalls.filter(call => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return call.id.toLowerCase().includes(q) || 
+           call.fund.toLowerCase().includes(q) || 
+           call.status.toLowerCase().includes(q);
+  });
+
+  // 3. Paginate
+  const totalPages = Math.ceil(searchedCalls.length / itemsPerPage) || 1;
+  // Ensure current page is valid when filtering changes
+  const validPage = Math.min(currentPage, totalPages);
+  
+  const startIndex = (validPage - 1) * itemsPerPage;
+  const paginatedCalls = searchedCalls.slice(startIndex, startIndex + itemsPerPage);
+
   const statCards = [
     { label: 'TOTAL CALLED (YTD)', value: stats.totalCalledYTD },
     { label: 'PENDING LIQUIDITY', value: stats.pendingLiquidity, valueColor: '#4f46e5' },
@@ -66,17 +83,32 @@ const CapitalCallPage = ({ onViewReport }: CapitalCallPageProps) => {
 
   return (
     <div className="cc-page">
-      {/* Top Navbar */}
       <nav className="cc-navbar">
         <div className="cc-nav-brand">Intelligent Capital Call & Liquidity Orchestration</div>
-        <div className="cc-search-container">
-          <svg className="cc-search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <input type="text" placeholder="Search capital calls..." className="cc-search-input" />
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <div className="cc-search-container">
+            <svg className="cc-search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input 
+              type="text" 
+              placeholder="Search capital calls..." 
+              className="cc-search-input"
+              value={searchQuery}
+              onChange={e => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
+          <button 
+            onClick={() => navigate('/')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: '0.875rem', fontWeight: 500 }}
+          >
+            Log Out
+          </button>
         </div>
       </nav>
 
       <main className="cc-main-content">
-        {/* Header Section */}
         <header className="cc-header">
           <div>
             <h1 className="cc-page-title">Capital Calls</h1>
@@ -88,7 +120,6 @@ const CapitalCallPage = ({ onViewReport }: CapitalCallPageProps) => {
           </button>
         </header>
 
-        {/* Stats Section */}
         <div className="cc-stats-grid">
           {statCards.map((stat, idx) => (
             <div key={idx} className="cc-stat-card">
@@ -98,22 +129,22 @@ const CapitalCallPage = ({ onViewReport }: CapitalCallPageProps) => {
           ))}
         </div>
 
-        {/* Table Section */}
         <div className="cc-table-container">
-          {/* Tabs */}
           <div className="cc-table-tabs">
-            {['All Calls', 'Active', 'Pending'].map(tab => (
+            {['All Calls', 'Active', 'Pending', 'Settled'].map(tab => (
               <button 
                 key={tab} 
                 className={`cc-tab ${activeTab === tab ? 'active' : ''}`}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => {
+                  setActiveTab(tab);
+                  setCurrentPage(1);
+                }}
               >
                 {tab}
               </button>
             ))}
           </div>
 
-          {/* Table */}
           <div className="cc-table-wrapper">
             <table className="cc-table">
               <thead>
@@ -128,30 +159,58 @@ const CapitalCallPage = ({ onViewReport }: CapitalCallPageProps) => {
                 </tr>
               </thead>
               <tbody>
-                {calls.map((call) => (
-                  <CapitalCallRow key={call.id} call={call} onViewReport={onViewReport} />
-                ))}
+                {paginatedCalls.length > 0 ? paginatedCalls.map((call) => (
+                  <CapitalCallRow key={call.id} call={call} />
+                )) : (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
+                      No capital calls found.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
 
-          {/* Pagination */}
-          <div className="cc-pagination">
-            <div className="cc-pagination-info">
-              Showing 1-4 of 12 Capital Calls
+          {searchedCalls.length > 0 && (
+            <div className="cc-pagination">
+              <div className="cc-pagination-info">
+                Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, searchedCalls.length)} of {searchedCalls.length} Capital Calls
+              </div>
+              <div className="cc-pagination-controls">
+                <button 
+                  className="cc-page-btn cc-page-arrow" 
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={validPage === 1}
+                  style={{ opacity: validPage === 1 ? 0.5 : 1, cursor: validPage === 1 ? 'not-allowed' : 'pointer' }}
+                >
+                  &lt;
+                </button>
+                
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button 
+                    key={page} 
+                    className={`cc-page-btn ${validPage === page ? 'active' : ''}`}
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </button>
+                ))}
+
+                <button 
+                  className="cc-page-btn cc-page-arrow"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={validPage === totalPages}
+                  style={{ opacity: validPage === totalPages ? 0.5 : 1, cursor: validPage === totalPages ? 'not-allowed' : 'pointer' }}
+                >
+                  &gt;
+                </button>
+              </div>
             </div>
-            <div className="cc-pagination-controls">
-              <button className="cc-page-btn cc-page-arrow">&lt;</button>
-              <button className="cc-page-btn active">1</button>
-              <button className="cc-page-btn">2</button>
-              <button className="cc-page-btn">3</button>
-              <button className="cc-page-btn cc-page-arrow">&gt;</button>
-            </div>
-          </div>
+          )}
         </div>
       </main>
 
-      {/* Conditionally render the StartCapitalCallModal overlay */}
       {isModalOpen && (
         <StartCapitalCallModal 
           isOpen={isModalOpen} 

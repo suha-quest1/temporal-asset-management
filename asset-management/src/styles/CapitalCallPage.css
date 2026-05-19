@@ -53,7 +53,7 @@
 .cc-main-content {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2.5rem 2rem;
+  padding: 1.5rem 2rem;
 }
 
 .cc-header {
@@ -99,8 +99,20 @@
 .cc-stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1.5rem;
-  margin-bottom: 2.5rem;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 960px) {
+  .cc-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .cc-stats-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .cc-stat-card {
@@ -198,6 +210,12 @@
 .cc-table tbody tr:last-child td {
   border-bottom: none;
 }
+
+.cc-table-row-clickable:hover td {
+  background-color: #f5f3ff;
+}
+
+
 
 .cc-cell-title {
   font-weight: 600;

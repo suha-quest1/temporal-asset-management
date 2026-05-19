@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import html2pdf from 'html2pdf.js';
 import '../styles/ReportViewerPage.css';
 
 interface LPDetail {
@@ -38,7 +40,9 @@ const compactCurrencyFmt = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2,
 });
 
-export default function ReportViewerPage({ callId, onBack }: { callId: string, onBack: () => void }) {
+export default function ReportViewerPage() {
+  const { callId } = useParams();
+  const navigate = useNavigate();
   const [report, setReport] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -65,7 +69,7 @@ export default function ReportViewerPage({ callId, onBack }: { callId: string, o
       <div className="report-error-content">
         <h2>Report Not Available</h2>
         <p>{error}</p>
-        <button onClick={onBack} className="report-back-btn">Return to Dashboard</button>
+        <button onClick={() => navigate('/capital-calls')} className="report-back-btn">Return to Dashboard</button>
       </div>
     </div>
   );
@@ -78,20 +82,29 @@ export default function ReportViewerPage({ callId, onBack }: { callId: string, o
   const isGap = report.summary.gapUSD > 0;
   const committedPercent = Math.max(0, 100 - report.summary.gapPercent);
 
+  const handleExportPDF = () => {
+    const element = document.getElementById('report-document');
+    if (!element) return;
+    const opt = {
+      margin: 0.5,
+      filename: `Capital_Call_Report_${callId}.pdf`,
+      image: { type: 'jpeg' as const, quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'in' as const, format: 'letter' as const, orientation: 'portrait' as const }
+    };
+    html2pdf().set(opt).from(element).save();
+  };
+
   return (
     <div className="report-page-container">
       {/* Top action bar - Hidden during print */}
       <div className="report-action-bar no-print">
-        <button className="report-back-btn" onClick={onBack}>
+        <button className="report-back-btn" onClick={() => navigate('/capital-calls')}>
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
           Back to Dashboard
         </button>
         <div className="report-actions">
-          <button className="report-btn report-btn-outline" onClick={() => window.print()}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-            Print Report
-          </button>
-          <button className="report-btn report-btn-primary" onClick={() => window.print()}>
+          <button className="report-btn report-btn-primary" onClick={handleExportPDF}>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
             Export PDF
           </button>
@@ -99,7 +112,7 @@ export default function ReportViewerPage({ callId, onBack }: { callId: string, o
       </div>
 
       {/* Printable Report Document */}
-      <div className="report-document">
+      <div id="report-document" className="report-document">
         
         {/* Header */}
         <div className="report-header">

@@ -1,0 +1,34 @@
+{
+  "reportType": "LiquidityReport",
+  "generatedAt": "2026-05-18T14:47:21.621940+00:00",
+  "callId": "CC-2026-1014",
+  "fundId": "fund-1",
+  "summary": {
+    "targetAmountUSD": 88000000,
+    "totalCommitted": 88000000,
+    "gapUSD": 0,
+    "gapPercent": 0,
+    "bridgeTriggered": false
+  },
+  "lpDetails": [
+    {
+      "lpId": "lp-08",
+      "status": "committed",
+      "amountUSD": 46808510.64,
+      "riskScore": 0.82
+    },
+    {
+      "lpId": "lp-05",
+      "status": "committed",
+      "amountUSD": 41191489.36,
+      "riskScore": 0.2567
+    }
+  ],
+  "portfolioRisk": {
+    "concentrationScore": 0.502,
+    "topRiskyLPs": [
+      "lp-08"
+    ]
+  },
+  "bridgeResult": null
+}

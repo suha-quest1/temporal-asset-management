@@ -277,6 +277,61 @@ func main() {
 		c.JSON(http.StatusOK, calls)
 	})
 
+	// GET /api/capital-calls/:callId/lps — returns ALL LP participation rows for a specific call
+	r.GET("/api/capital-calls/:callId/lps", func(c *gin.Context) {
+		callID := c.Param("callId")
+
+		rows, err := pool.Query(context.Background(),
+			`SELECT cl.lp_id, cl.commitment_usd, cl.draw_amount_usd, cl.status, cl.risk_score
+			 FROM capital_call_lps cl
+			 WHERE cl.call_id = $1
+			 ORDER BY cl.lp_id`, callID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		defer rows.Close()
+
+		var lps []map[string]interface{}
+		for rows.Next() {
+			var lpId, status string
+			var commitmentUSD float64
+			var drawAmountUSD *float64
+			var riskScore *float64
+
+			if err := rows.Scan(&lpId, &commitmentUSD, &drawAmountUSD, &status, &riskScore); err != nil {
+				log.Printf("Failed to scan capital_call_lps row: %v", err)
+				continue
+			}
+
+			drawAmt := 0.0
+			if drawAmountUSD != nil {
+				drawAmt = *drawAmountUSD
+			}
+
+			var risk interface{} = nil
+			if riskScore != nil {
+				risk = *riskScore
+			}
+
+			lps = append(lps, map[string]interface{}{
+				"lpId":          lpId,
+				"commitmentUSD": commitmentUSD,
+				"drawAmountUSD": drawAmt,
+				"status":        status,
+				"riskScore":     risk,
+			})
+		}
+
+		if lps == nil {
+			lps = []map[string]interface{}{}
+		}
+
+		c.JSON(http.StatusOK, lps)
+	})
+
+
+
 	// ─── LP Master List ──────────────────────────────────────────────────────
 
 	// GET /api/lps — returns all seeded LPs from the lps master table

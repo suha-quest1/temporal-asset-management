@@ -50,6 +50,15 @@ export const postGPDecision = async (callId: string, payload: { lpId: string, ac
   return response.json();
 };
 
+export const getCallLPs = async (callId: string) => {
+  const response = await fetch(`/api/capital-calls/${callId}/lps`);
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Failed to fetch call LPs: ${errorBody}`);
+  }
+  return response.json();
+};
+
 export const postLPResponse = async (callId: string, payload: { lpId: string, amount: number }) => {
   const response = await fetch(`/api/capital-calls/${callId}/lp-response`, {
     method: 'POST',
