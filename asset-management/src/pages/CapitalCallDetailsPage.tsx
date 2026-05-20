@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import '../styles/CapitalCallDetailsPage.css';
 import '../styles/LPRiskTrackerPage.css';
-import { getRiskyLPs, postGPDecision, getCallLPs, getCapitalCalls } from '../api/CapitalCall';
+import { getRiskyLPs, postGPDecision, getCallLPs, getCapitalCalls, postForceSettlement, postCancelCall } from '../api/CapitalCall';
 import type { CapitalCall } from '../components/CapitalCallRow';
 
 import { useParams, useNavigate } from 'react-router-dom';
@@ -47,6 +47,7 @@ export default function CapitalCallDetailsPage() {
   const [selectedLP, setSelectedLP] = useState<RiskyLP | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [lpLoading, setLpLoading] = useState(true);
+  const [portfolioRisk, setPortfolioRisk] = useState<any>(null);
 
   // Local state for the call
   const [activeCall, setActiveCall] = useState<CapitalCall | null>(null);
@@ -128,6 +129,48 @@ export default function CapitalCallDetailsPage() {
     }
   };
 
+  useEffect(() => {
+    if (activeCall?.status === 'settled') {
+      fetch(`/reports/${activeCall.id}.json`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.portfolioRisk) {
+            setPortfolioRisk(data.portfolioRisk);
+          }
+        })
+        .catch(err => console.log("Report not available yet or fetch failed", err));
+    }
+  }, [activeCall?.status, activeCall?.id]);
+
+  const handleForceSettlement = async () => {
+    if (!activeCall || submitting) return;
+    setSubmitting(true);
+    try {
+      await postForceSettlement(activeCall.id);
+      alert("Force settlement signal sent.");
+    } catch (err) {
+      console.error(err);
+      alert(`Failed: ${err}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCancelCall = async () => {
+    if (!activeCall || submitting) return;
+    if (!window.confirm("Are you sure you want to cancel this capital call?")) return;
+    setSubmitting(true);
+    try {
+      await postCancelCall(activeCall.id);
+      alert("Cancel call signal sent.");
+    } catch (err) {
+      console.error(err);
+      alert(`Failed: ${err}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   if (!activeCall) {
     return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading capital call details...</div>;
   }
@@ -184,9 +227,6 @@ export default function CapitalCallDetailsPage() {
             </div>
           </div>
         </div>
-        <div className="ccd-header-actions">
-          <button className="ccd-btn-primary">Pause Workflow</button>
-        </div>
       </div>
 
       <div className="ccd-body">
@@ -241,6 +281,22 @@ export default function CapitalCallDetailsPage() {
               </div>
             )}
           </div>
+
+          {portfolioRisk && (
+            <div className="ccd-section-card" style={{ padding: '1.25rem', marginBottom: '1.25rem', borderLeft: '4px solid #f59e0b' }}>
+              <div className="ccd-section-title" style={{ marginBottom: '1rem' }}>PORTFOLIO RISK SUMMARY</div>
+              <div style={{ display: 'flex', gap: '3rem', fontSize: '0.875rem' }}>
+                <div>
+                  <span style={{ color: '#6b7280', display: 'block', marginBottom: '0.25rem', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 600 }}>Concentration Score (HHI)</span>
+                  <strong style={{ fontSize: '1.5rem', color: '#111827' }}>{portfolioRisk.concentrationScore}</strong>
+                </div>
+                <div>
+                  <span style={{ color: '#6b7280', display: 'block', marginBottom: '0.25rem', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 600 }}>Top Risky LPs</span>
+                  <strong style={{ fontSize: '1.1rem', color: '#dc2626' }}>{portfolioRisk.topRiskyLPs?.join(', ') || 'None'}</strong>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* LP Contribution Ledger */}
           <div className="ccd-section-card">
@@ -349,10 +405,9 @@ export default function CapitalCallDetailsPage() {
           <div className="ccd-bottom-row">
             <div className="ccd-section-card ccd-workflow-controls">
               <div className="ccd-section-title" style={{ marginBottom: '1rem' }}>WORKFLOW CONTROLS</div>
-              <button className="ccd-ctrl-btn ccd-ctrl-force">Force Settlement</button>
-              <div className="ccd-ctrl-secondary-row">
-                <button className="ccd-ctrl-btn ccd-ctrl-end">End Workflow Early</button>
-                <button className="ccd-ctrl-btn ccd-ctrl-cancel">Cancel Call</button>
+              <div className="ccd-workflow-btns">
+                <button className="ccd-ctrl-btn ccd-ctrl-force" onClick={handleForceSettlement} disabled={submitting || activeCall.status === 'settled' || activeCall.status === 'cancelled'}>Force Settlement</button>
+                <button className="ccd-ctrl-btn ccd-ctrl-cancel" onClick={handleCancelCall} disabled={submitting || activeCall.status === 'settled' || activeCall.status === 'cancelled'}>Cancel Call</button>
               </div>
             </div>
 

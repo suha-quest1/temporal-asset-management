@@ -137,10 +137,6 @@ type EscalateToGPInput struct {
 	LP     LP      `json:"lp"`
 	Risk   float64 `json:"risk"`
 }
-
-// EnforcementWarningInput is the input to SendEnforcementWarning.
-// GP enforcement sends a compliance warning email but does NOT remove
-// the LP contribution or alter any aggregate liquidity totals.
 type EnforcementWarningInput struct {
 	CallID string `json:"callId"`
 	LP     LP     `json:"lp"`

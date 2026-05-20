@@ -172,6 +172,18 @@ export default function ReportViewerPage() {
           </div>
         </div>
 
+        {/* Portfolio Risk */}
+        {report.portfolioRisk && (
+          <div className="report-velocity-section" style={{ borderTop: 'none', paddingTop: '0', marginTop: '-0.5rem' }}>
+            <div className="velocity-info" style={{ width: '100%' }}>
+              <h3>Portfolio Risk Summary</h3>
+              <p>
+                Concentration Score (HHI): <strong>{report.portfolioRisk.concentrationScore}</strong> | Top Risky LPs: <strong>{report.portfolioRisk.topRiskyLPs?.join(', ') || 'None'}</strong>
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Funding Velocity */}
         <div className="report-velocity-section">
           <div className="velocity-info">

@@ -98,7 +98,7 @@
 
 .cc-stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
   margin-bottom: 2rem;
 }
@@ -359,4 +359,54 @@ html, body {
   margin: 0;
   padding: 0;
   width: 100%;
+}
+
+/* ─── Mobile Responsiveness Fixes ─── */
+.cc-navbar-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.cc-logout-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b7280;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .cc-navbar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 1rem;
+    gap: 1rem;
+  }
+  .cc-navbar-actions {
+    width: 100%;
+  }
+  .cc-search-container {
+    flex: 1;
+    width: auto;
+  }
+  .cc-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+  .cc-new-call-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .cc-main-content {
+    padding: 1rem;
+  }
+  .cc-table-tabs {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 1rem 1rem 0;
+  }
 }

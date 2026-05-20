@@ -47,6 +47,23 @@ Capital call lifecycle — one workflow per call event
 - [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) (Docker Desktop for Mac includes both)
 - No Go or Python installation required — everything runs in containers
 
+## Database Initialization & Setup
+
+The database schema and seed data have been consolidated into a clean structure for maintainability:
+- `db/schema.sql`: Contains the final, consolidated table definitions, constraints, and indexes.
+- `db/seed.sql`: Contains the canonical demo LP records (lp-01 through lp-10).
+
+**How Initialization Works:**
+When the `postgres` Docker container starts for the first time, it automatically executes all `.sql` scripts in the `/docker-entrypoint-initdb.d/` directory in alphabetical order. We map our `./db` directory directly to this path in `docker-compose.yml`.
+This ensures `schema.sql` runs first to create the tables, followed by `seed.sql` to populate the initial data.
+
+**How to Reseed Locally:**
+If you need to reset the database and reseed the data, you can clear the docker volume and restart the database:
+```bash
+docker compose down -v
+docker compose up -d
+```
+
 ## Quick Start
 
 ### 1. Clone the repository
@@ -194,7 +211,7 @@ docker run --rm -v $(pwd):/app -w /app golang:1.22-alpine \
 │   ├── mockcreditfacility/ Mock credit facility
 │   ├── mockses/           Mock SES email service
 │   └── worker/            Temporal worker
-├── db/migrations/         Postgres schema
+├── db/                    schema.sql and seed.sql
 ├── internal/
 │   ├── activities/        Temporal activity implementations + tests
 │   ├── db/                Database connection helper

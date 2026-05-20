@@ -52,7 +52,6 @@ const CapitalCallPage = () => {
   // 1. Filter
   const filteredCalls = calls.filter(call => {
     if (activeTab === 'Active') return call.status === 'issued';
-    if (activeTab === 'Pending') return call.status === 'pending';
     if (activeTab === 'Settled') return call.status === 'settled';
     return true;
   });
@@ -77,7 +76,6 @@ const CapitalCallPage = () => {
   const statCards = [
     { label: 'TOTAL CALLED (YTD)', value: stats.totalCalledYTD },
     { label: 'PENDING LIQUIDITY', value: stats.pendingLiquidity, valueColor: '#4f46e5' },
-    { label: 'AVG. LP RESPONSE', value: stats.avgLPResponse },
     { label: 'ACTIVE CALLS', value: stats.activeCalls },
   ];
 
@@ -85,7 +83,7 @@ const CapitalCallPage = () => {
     <div className="cc-page">
       <nav className="cc-navbar">
         <div className="cc-nav-brand">Intelligent Capital Call & Liquidity Orchestration</div>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+        <div className="cc-navbar-actions">
           <div className="cc-search-container">
             <svg className="cc-search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
             <input 
@@ -100,8 +98,8 @@ const CapitalCallPage = () => {
             />
           </div>
           <button 
+            className="cc-logout-btn"
             onClick={() => navigate('/')}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: '0.875rem', fontWeight: 500 }}
           >
             Log Out
           </button>
@@ -131,7 +129,7 @@ const CapitalCallPage = () => {
 
         <div className="cc-table-container">
           <div className="cc-table-tabs">
-            {['All Calls', 'Active', 'Pending', 'Settled'].map(tab => (
+            {['All Calls', 'Active', 'Settled'].map(tab => (
               <button 
                 key={tab} 
                 className={`cc-tab ${activeTab === tab ? 'active' : ''}`}

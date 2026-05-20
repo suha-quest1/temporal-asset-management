@@ -98,13 +98,6 @@
   gap: 0.3rem;
 }
 
-.ccd-header-actions {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-  flex-shrink: 0;
-}
-
 .ccd-btn-outline {
   background: white;
   border: 1px solid #d1d5db;
@@ -118,19 +111,6 @@
 }
 .ccd-btn-outline:hover { background: #f9fafb; }
 
-.ccd-btn-primary {
-  background: #4f46e5;
-  color: white;
-  border: none;
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: 0.5rem 1.25rem;
-  border-radius: 7px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.ccd-btn-primary:hover { background: #4338ca; }
-
 /* ─── Body: two-column layout ────────────────────────────────────── */
 .ccd-body {
   display: grid;
@@ -139,6 +119,14 @@
   padding: 1.5rem 2rem;
   max-width: 1400px;
   margin: 0 auto;
+}
+
+.ccd-main-col {
+  min-width: 0;
+}
+
+.ccd-right-col {
+  min-width: 0;
 }
 
 @media (max-width: 960px) {
@@ -409,12 +397,18 @@
 /* ─── Workflow Controls ──────────────────────────────────────────── */
 .ccd-workflow-controls { margin-bottom: 0; }
 
+.ccd-workflow-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
 .ccd-ctrl-btn {
   display: block;
   width: 100%;
-  padding: 0.55rem 1rem;
+  padding: 0.45rem 0.75rem;
   border-radius: 6px;
-  font-size: 0.825rem;
+  font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
   text-align: center;
@@ -425,29 +419,13 @@
   background: #dc2626;
   color: white;
   border: none;
-  margin-bottom: 0.6rem;
 }
 .ccd-ctrl-force:hover { background: #b91c1c; }
-
-.ccd-ctrl-secondary-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-}
-
-.ccd-ctrl-end {
-  background: white;
-  color: #374151;
-  border: 1px solid #d1d5db;
-  font-size: 0.75rem;
-}
-.ccd-ctrl-end:hover { background: #f9fafb; }
 
 .ccd-ctrl-cancel {
   background: white;
   color: #dc2626;
   border: 1px solid #fca5a5;
-  font-size: 0.75rem;
 }
 .ccd-ctrl-cancel:hover { background: #fff5f5; }
 
@@ -458,7 +436,6 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.5rem;
-  margin-bottom: 0.5rem;
 }
 
 .ccd-audit-btn {
@@ -639,4 +616,32 @@
   font-size: 0.72rem;
   color: #6b7280;
   line-height: 1.4;
+}
+
+/* ─── Mobile Responsiveness Fixes ─── */
+@media (max-width: 768px) {
+  .ccd-header-bar {
+    flex-direction: column;
+    padding: 1.25rem 1rem;
+  }
+  .ccd-body {
+    padding: 1rem;
+  }
+  .ccd-title-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  .ccd-summary-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .ccd-bottom-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .ccd-summary-cards {
+    grid-template-columns: 1fr;
+  }
 }

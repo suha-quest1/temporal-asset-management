@@ -1,0 +1,39 @@
+{
+  "reportType": "LiquidityReport",
+  "generatedAt": "2026-05-20T04:22:41.408929+00:00",
+  "callId": "CC-2026-3509",
+  "fundId": "fund-1",
+  "summary": {
+    "targetAmountUSD": 10000,
+    "totalCommitted": 0,
+    "gapUSD": 10000,
+    "gapPercent": 100,
+    "bridgeTriggered": true
+  },
+  "lpDetails": [
+    {
+      "lpId": "lp-08",
+      "status": "defaulted",
+      "amountUSD": 0,
+      "riskScore": 0.82
+    },
+    {
+      "lpId": "lp-07",
+      "status": "defaulted",
+      "amountUSD": 0,
+      "riskScore": 0.86
+    }
+  ],
+  "portfolioRisk": {
+    "concentrationScore": 0,
+    "topRiskyLPs": [
+      "lp-07",
+      "lp-08"
+    ]
+  },
+  "bridgeResult": {
+    "confirmationId": "BRIDGE-CC-2026-3509-1779250961348",
+    "drawdownUSD": 10000,
+    "feeUSD": 150
+  }
+}

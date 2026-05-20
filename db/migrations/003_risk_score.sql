@@ -1,2 +1,0 @@
-ALTER TABLE capital_call_lps
-  ADD COLUMN IF NOT EXISTS risk_score NUMERIC(8,4) DEFAULT NULL;

@@ -557,3 +557,26 @@ func (a *Activities) UpdateLiveAggregates(ctx context.Context, input models.Upda
 
 	return nil
 }
+
+// MarkCallCancelled updates the DB projection to mark the call and all its LP
+// records as cancelled.
+func (a *Activities) MarkCallCancelled(ctx context.Context, callID string) error {
+	logger := activity.GetLogger(ctx)
+	logger.Info("Marking call as cancelled in DB", "callId", callID)
+
+	if a.DB == nil {
+		return nil
+	}
+
+	_, err := a.DB.Exec(ctx, `UPDATE capital_call_lps SET status = 'cancelled' WHERE call_id = $1`, callID)
+	if err != nil {
+		return fmt.Errorf("failed to cancel capital_call_lps: %w", err)
+	}
+
+	_, err = a.DB.Exec(ctx, `UPDATE capital_calls SET status = 'cancelled' WHERE call_id = $1`, callID)
+	if err != nil {
+		return fmt.Errorf("failed to cancel capital_calls: %w", err)
+	}
+
+	return nil
+}

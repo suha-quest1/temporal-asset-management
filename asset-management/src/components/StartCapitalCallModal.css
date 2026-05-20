@@ -299,3 +299,23 @@
 .cc-modal-start-btn:hover {
   background-color: #4f46e5;
 }
+
+@media (max-width: 640px) {
+  .cc-modal-overlay {
+    padding: 1rem;
+  }
+  .cc-modal-content {
+    max-height: 100%;
+    overflow-y: auto;
+  }
+  .cc-modal-row {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .cc-modal-footer {
+    flex-direction: column-reverse;
+  }
+  .cc-modal-cancel-btn, .cc-modal-start-btn {
+    width: 100%;
+  }
+}

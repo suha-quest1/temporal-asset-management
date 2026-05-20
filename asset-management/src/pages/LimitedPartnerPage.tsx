@@ -111,7 +111,6 @@ export default function LimitedPartnerPage() {
   // 1. Filter
   const filteredCalls = calls.filter(call => {
     if (activeTab === 'Active') return call.status === 'issued';
-    if (activeTab === 'Pending') return call.status === 'pending';
     if (activeTab === 'Settled') return call.status === 'settled';
     return true;
   });
@@ -139,8 +138,8 @@ export default function LimitedPartnerPage() {
       <nav className="lp-navbar">
         <div className="lp-nav-brand">Intelligent Capital Call &amp; Liquidity Orchestration</div>
         
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <div className="cc-search-container" style={{ position: 'relative', width: '280px' }}>
+        <div className="lp-navbar-actions">
+          <div className="cc-search-container lp-search-container">
             <svg style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
             <input 
               type="text" 
@@ -214,7 +213,7 @@ export default function LimitedPartnerPage() {
             </div>
             
             <div className="cc-table-tabs" style={{ padding: 0, borderBottom: 'none', display: 'flex', gap: '1rem' }}>
-              {['All Calls', 'Active', 'Pending', 'Settled'].map(tab => (
+              {['All Calls', 'Active', 'Settled'].map(tab => (
                 <button 
                   key={tab} 
                   className={`cc-tab ${activeTab === tab ? 'active' : ''}`}

@@ -1,4 +1,0 @@
-ALTER TABLE capital_calls
-    ADD COLUMN IF NOT EXISTS received_amount_usd NUMERIC(18,2) NOT NULL DEFAULT 0,
-    ADD COLUMN IF NOT EXISTS lp_completion_count VARCHAR(32) NOT NULL DEFAULT '0 / 0',
-    ADD COLUMN IF NOT EXISTS deadline_date TIMESTAMP;

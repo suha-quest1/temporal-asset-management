@@ -12,9 +12,11 @@ import (
 )
 
 const (
-	TaskQueue          = "capital-call-queue"
-	SignalLPCommitment = "lpCommitment"
-	SignalGPDecision   = "gpDecision"
+	TaskQueue             = "capital-call-queue"
+	SignalLPCommitment    = "lpCommitment"
+	SignalGPDecision      = "gpDecision"
+	SignalForceSettlement = "forceSettlement"
+	SignalCancelCall      = "cancelCall"
 )
 
 // act is a nil pointer used solely to obtain typed method references
@@ -61,13 +63,14 @@ func CapitalCallWorkflow(ctx workflow.Context, input models.CapitalCallInput) (*
 	}
 
 	// ── Step 3: Start child LPResponseWorkflow per LP concurrently ──────
+	childCtx, cancelChildren := workflow.WithCancel(ctx)
 	childFutures := make([]workflow.Future, len(input.LPList))
 	for i, lp := range input.LPList {
-		childCtx := workflow.WithChildOptions(ctx, workflow.ChildWorkflowOptions{
+		childOpts := workflow.WithChildOptions(childCtx, workflow.ChildWorkflowOptions{
 			WorkflowID: fmt.Sprintf("lp-response-%s-%s", input.CallID, lp.LPID),
 			TaskQueue:  TaskQueue,
 		})
-		childFutures[i] = workflow.ExecuteChildWorkflow(childCtx, LPResponseWorkflow, models.LPResponseInput{
+		childFutures[i] = workflow.ExecuteChildWorkflow(childOpts, LPResponseWorkflow, models.LPResponseInput{
 			CallID:        input.CallID,
 			LPID:          lp.LPID,
 			CommitmentUSD: lp.CommitmentUSD,
@@ -77,19 +80,70 @@ func CapitalCallWorkflow(ctx workflow.Context, input models.CapitalCallInput) (*
 		})
 	}
 
-	// ── Step 4: Collect all LP responses ────────────────────────────────
+	// ── Step 4: Collect all LP responses & Handle Signals ───────────────
+	forceSettlementCh := workflow.GetSignalChannel(ctx, SignalForceSettlement)
+	cancelCallCh := workflow.GetSignalChannel(ctx, SignalCancelCall)
+	
 	lpResponses := make([]models.LPResponse, len(input.LPList))
-	for i, future := range childFutures {
-		var resp models.LPResponse
-		if err := future.Get(ctx, &resp); err != nil {
-			logger.Warn("Child workflow failed, marking LP as defaulted",
-				"lpId", input.LPList[i].LPID, "error", err)
-			lpResponses[i] = models.LPResponse{
-				LPID:   input.LPList[i].LPID,
-				Status: "defaulted",
+	completedCount := 0
+	
+	selector := workflow.NewSelector(ctx)
+	
+	for i := range childFutures {
+		idx := i
+		selector.AddFuture(childFutures[idx], func(f workflow.Future) {
+			var resp models.LPResponse
+			if err := f.Get(ctx, &resp); err != nil {
+				logger.Warn("Child workflow failed or canceled, marking LP as defaulted",
+					"lpId", input.LPList[idx].LPID, "error", err)
+				lpResponses[idx] = models.LPResponse{
+					LPID:   input.LPList[idx].LPID,
+					Status: "defaulted",
+				}
+			} else {
+				lpResponses[idx] = resp
 			}
-		} else {
-			lpResponses[i] = resp
+			completedCount++
+		})
+	}
+	
+	forceSettlement := false
+	cancelCall := false
+	
+	selector.AddReceive(forceSettlementCh, func(c workflow.ReceiveChannel, more bool) {
+		c.Receive(ctx, nil)
+		forceSettlement = true
+	})
+	
+	selector.AddReceive(cancelCallCh, func(c workflow.ReceiveChannel, more bool) {
+		c.Receive(ctx, nil)
+		cancelCall = true
+	})
+	
+	for completedCount < len(input.LPList) && !forceSettlement && !cancelCall {
+		selector.Select(ctx)
+	}
+	
+	if cancelCall {
+		logger.Info("Cancel call signal received, aborting workflow", "callId", input.CallID)
+		cancelChildren()
+		_ = workflow.ExecuteActivity(ctx, act.MarkCallCancelled, input.CallID).Get(ctx, nil)
+		
+		return &models.CapitalCallResult{
+			CallID: input.CallID,
+		}, nil
+	}
+	
+	if forceSettlement {
+		logger.Info("Force settlement signal received, stopping child workflows", "callId", input.CallID)
+		cancelChildren()
+		for i := range input.LPList {
+			if lpResponses[i].LPID == "" {
+				lpResponses[i] = models.LPResponse{
+					LPID:   input.LPList[i].LPID,
+					Status: "defaulted",
+				}
+			}
 		}
 	}
 
@@ -168,12 +222,7 @@ func CapitalCallWorkflow(ctx workflow.Context, input models.CapitalCallInput) (*
 	}
 
 	// Wait for a GP decision signal for each escalated LP.
-	// GP enforcement is a governance/compliance action only:
-	//   - "waive"  → accept the risky commitment; no further action required.
-	//   - "enforce" → send a warning/compliance email via SES; contribution stays
-	//                 committed and all aggregates remain unchanged.
-	// In both cases the LP status remains "committed" and the contribution amount
-	// is never mutated. Only true non-responders (deadline timeout) become "defaulted".
+
 	if len(highRiskIndices) > 0 {
 		gpDecisionCh := workflow.GetSignalChannel(ctx, SignalGPDecision)
 		for range highRiskIndices {
@@ -195,7 +244,7 @@ func CapitalCallWorkflow(ctx workflow.Context, input models.CapitalCallInput) (*
 					}
 				}
 			}
-			// "waive" requires no action — the risky commitment is accepted as-is.
+
 		}
 	}
 

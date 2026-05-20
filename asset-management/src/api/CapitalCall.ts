@@ -75,3 +75,31 @@ export const postLPResponse = async (callId: string, payload: { lpId: string, am
 
   return response.json();
 };
+
+export const postForceSettlement = async (callId: string) => {
+  const response = await fetch(`/api/capital-calls/${callId}/force-settlement`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Failed to force settlement: ${errorBody}`);
+  }
+
+  return response.json();
+};
+
+export const postCancelCall = async (callId: string) => {
+  const response = await fetch(`/api/capital-calls/${callId}/cancel-call`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Failed to cancel call: ${errorBody}`);
+  }
+
+  return response.json();
+};

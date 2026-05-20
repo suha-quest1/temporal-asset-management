@@ -26,7 +26,7 @@ def _synthetic_score(lp_id: str, status: str, amount: float) -> float:
     if status == "defaulted":
         return 0.75 + (hash(lp_id) % 20) / 100  # 0.75 – 0.94
 
-    # Deterministic but varied score for normal LPs  (!!!!!!!!MEANING??)
+    # Deterministic but varied score for normal LPs
     digest = hashlib.sha256(lp_id.encode()).hexdigest()
     raw = int(digest[:8], 16) / 0xFFFFFFFF  # 0.0 – 1.0
     return round(0.05 + raw * 0.50, 4)       # 0.05 – 0.55

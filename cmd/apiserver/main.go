@@ -118,6 +118,42 @@ func main() {
 		})
 	})
 
+	// POST /api/capital-calls/:callId/force-settlement
+	r.POST("/api/capital-calls/:callId/force-settlement", func(ctx *gin.Context) {
+		callID := ctx.Param("callId")
+		parentWorkflowID := "capital-call-" + callID
+
+		err := c.SignalWorkflow(ctx, parentWorkflowID, "", workflows.SignalForceSettlement, nil)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		ctx.JSON(http.StatusOK, gin.H{
+			"status": "signal_sent",
+			"callId": callID,
+			"signal": workflows.SignalForceSettlement,
+		})
+	})
+
+	// POST /api/capital-calls/:callId/cancel-call
+	r.POST("/api/capital-calls/:callId/cancel-call", func(ctx *gin.Context) {
+		callID := ctx.Param("callId")
+		parentWorkflowID := "capital-call-" + callID
+
+		err := c.SignalWorkflow(ctx, parentWorkflowID, "", workflows.SignalCancelCall, nil)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		ctx.JSON(http.StatusOK, gin.H{
+			"status": "signal_sent",
+			"callId": callID,
+			"signal": workflows.SignalCancelCall,
+		})
+	})
+
 	// ─── Capital Call Workflow Initiation ────────────────────────────────────
 
 	// POST /api/capital-calls — starts a new CapitalCallWorkflow.

@@ -1,10 +1,3 @@
--- Create the lps master table
-CREATE TABLE IF NOT EXISTS lps (
-    lp_id          VARCHAR(64) PRIMARY KEY,
-    commitment_usd NUMERIC(18,2) NOT NULL,
-    email          VARCHAR(256) NOT NULL
-);
-
 -- Seed the canonical 10 LPs (matches demodriver simulation)
 INSERT INTO lps (lp_id, commitment_usd, email) VALUES
     ('lp-01', 15000000.00, 'lp-01@example.com'),
