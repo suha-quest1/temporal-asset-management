@@ -25,7 +25,7 @@ export const getCapitalCalls = async () => {
 };
 
 export const getRiskyLPs = async () => {
-  const response = await fetch('/api/capital-calls/risky-lps');
+  const response = await fetch('/api/capital-calls/lps?risk=high&callStatus=issued');
   if (!response.ok) {
     const errorBody = await response.text();
     throw new Error(`Failed to fetch risky LPs: ${errorBody}`);
@@ -51,7 +51,7 @@ export const postGPDecision = async (callId: string, payload: { lpId: string, ac
 };
 
 export const getCallLPs = async (callId: string) => {
-  const response = await fetch(`/api/capital-calls/${callId}/lps`);
+  const response = await fetch(`/api/capital-calls/lps?callId=${callId}`);
   if (!response.ok) {
     const errorBody = await response.text();
     throw new Error(`Failed to fetch call LPs: ${errorBody}`);

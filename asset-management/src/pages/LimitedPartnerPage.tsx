@@ -82,7 +82,7 @@ export default function LimitedPartnerPage() {
     const load = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`/api/lps/${lpId}/capital-calls`);
+        const res = await fetch(`/api/capital-calls?lpId=${lpId}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data: LPCall[] = await res.json();
         if (!cancelled) {

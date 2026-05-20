@@ -206,72 +206,34 @@ func main() {
 
 	// ─── Capital Calls List (DB-driven) ─────────────────────────────────────
 
-	// GET /api/capital-calls/risky-lps — returns all LPs with risk score > 0.7 from active calls
-	r.GET("/api/capital-calls/risky-lps", func(c *gin.Context) {
-		rows, err := pool.Query(context.Background(),
-			`SELECT cl.call_id, cl.lp_id, cl.risk_score,
-			        cl.commitment_usd, cl.draw_amount_usd, cl.status AS lp_status,
-			        cc.status AS call_status, cc.created_at
-			 FROM capital_call_lps cl
-			 JOIN capital_calls cc ON cl.call_id = cc.call_id
-			 WHERE cc.status = 'issued'
-			   AND cl.risk_score > 0.7
-			 ORDER BY cl.risk_score DESC`)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		defer rows.Close()
 
-		var lps []map[string]interface{}
-		for rows.Next() {
-			var callId, lpId, lpStatus, callStatus string
-			var riskScore, commitmentUSD float64
-			var drawAmountUSD *float64
-			var flaggedAt *time.Time
 
-			if err := rows.Scan(&callId, &lpId, &riskScore, &commitmentUSD, &drawAmountUSD, &lpStatus, &callStatus, &flaggedAt); err != nil {
-				log.Printf("Failed to scan risky_lps row: %v", err)
-				continue
-			}
-
-			flaggedAtStr := ""
-			if flaggedAt != nil {
-				flaggedAtStr = flaggedAt.Format(time.RFC3339)
-			}
-
-			drawAmt := 0.0
-			if drawAmountUSD != nil {
-				drawAmt = *drawAmountUSD
-			}
-
-			lps = append(lps, map[string]interface{}{
-				"callId":        callId,
-				"lpId":          lpId,
-				"riskScore":     riskScore,
-				"commitmentUSD": commitmentUSD,
-				"drawAmountUSD": drawAmt,
-				"lpStatus":      lpStatus,
-				"callStatus":    callStatus,
-				"flaggedAt":     flaggedAtStr,
-			})
-		}
-
-		if lps == nil {
-			lps = []map[string]interface{}{}
-		}
-
-		c.JSON(http.StatusOK, lps)
-	})
-
-	// GET /api/capital-calls — returns all capital calls from DB
+	// GET /api/capital-calls — returns all capital calls from DB (optionally filtered by lpId)
 	r.GET("/api/capital-calls", func(c *gin.Context) {
-		rows, err := pool.Query(context.Background(),
-			`SELECT call_id, fund_id, target_amount_usd, received_amount_usd,
-			        COALESCE(lp_completion_count, '0 / 0'),
-			        deadline_date, status
-			 FROM capital_calls
-			 ORDER BY created_at DESC`)
+		lpID := c.Query("lpId")
+
+		var query string
+		var args []interface{}
+
+		if lpID != "" {
+			query = `SELECT cc.call_id, cc.fund_id, cc.target_amount_usd, cc.received_amount_usd,
+				        COALESCE(cc.lp_completion_count, '0 / 0'), cc.deadline_date, cc.status,
+				        cl.commitment_usd, cl.draw_amount_usd, cl.status AS lp_status
+				 FROM capital_calls cc
+				 JOIN capital_call_lps cl ON cc.call_id = cl.call_id
+				 WHERE cl.lp_id = $1
+				 ORDER BY cc.created_at DESC`
+			args = append(args, lpID)
+		} else {
+			query = `SELECT call_id, fund_id, target_amount_usd, received_amount_usd,
+				        COALESCE(lp_completion_count, '0 / 0'),
+				        deadline_date, status,
+				        0.0 AS commitment_usd, NULL AS draw_amount_usd, '' AS lp_status
+				 FROM capital_calls
+				 ORDER BY created_at DESC`
+		}
+
+		rows, err := pool.Query(context.Background(), query, args...)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -280,11 +242,12 @@ func main() {
 
 		var calls []map[string]interface{}
 		for rows.Next() {
-			var callId, fundId, status, lpCompletion string
-			var targetAmt, receivedAmt float64
-			var deadline *time.Time // pointer so NULL scans as nil
+			var callId, fundId, status, lpCompletion, lpStatus string
+			var targetAmt, receivedAmt, commitmentUSD float64
+			var deadline *time.Time
+			var drawAmountUSD *float64
 
-			if err := rows.Scan(&callId, &fundId, &targetAmt, &receivedAmt, &lpCompletion, &deadline, &status); err != nil {
+			if err := rows.Scan(&callId, &fundId, &targetAmt, &receivedAmt, &lpCompletion, &deadline, &status, &commitmentUSD, &drawAmountUSD, &lpStatus); err != nil {
 				log.Printf("Failed to scan capital_calls row: %v", err)
 				continue
 			}
@@ -294,7 +257,7 @@ func main() {
 				deadlineStr = deadline.Format(time.RFC3339)
 			}
 
-			calls = append(calls, map[string]interface{}{
+			callObj := map[string]interface{}{
 				"id":           callId,
 				"fund":         fundId,
 				"target":       targetAmt,
@@ -302,10 +265,21 @@ func main() {
 				"lpCompletion": lpCompletion,
 				"deadlineDate": deadlineStr,
 				"status":       status,
-			})
+			}
+
+			if lpID != "" {
+				drawAmt := 0.0
+				if drawAmountUSD != nil {
+					drawAmt = *drawAmountUSD
+				}
+				callObj["commitmentUSD"] = commitmentUSD
+				callObj["drawAmountUSD"] = drawAmt
+				callObj["lpStatus"] = lpStatus
+			}
+
+			calls = append(calls, callObj)
 		}
 
-		// Return empty array rather than null when no rows
 		if calls == nil {
 			calls = []map[string]interface{}{}
 		}
@@ -313,15 +287,38 @@ func main() {
 		c.JSON(http.StatusOK, calls)
 	})
 
-	// GET /api/capital-calls/:callId/lps — returns ALL LP participation rows for a specific call
-	r.GET("/api/capital-calls/:callId/lps", func(c *gin.Context) {
-		callID := c.Param("callId")
+	// GET /api/capital-calls/lps — unified endpoint for LPs across calls
+	// Query params: callId, risk, callStatus
+	r.GET("/api/capital-calls/lps", func(c *gin.Context) {
+		callID := c.Query("callId")
+		risk := c.Query("risk")
+		callStatus := c.Query("callStatus")
 
-		rows, err := pool.Query(context.Background(),
-			`SELECT cl.lp_id, cl.commitment_usd, cl.draw_amount_usd, cl.status, cl.risk_score
-			 FROM capital_call_lps cl
-			 WHERE cl.call_id = $1
-			 ORDER BY cl.lp_id`, callID)
+		query := `SELECT cl.call_id, cl.lp_id, cl.commitment_usd, cl.draw_amount_usd, cl.status AS lp_status, cl.risk_score,
+		                 cc.status AS call_status, cc.created_at AS flagged_at
+		          FROM capital_call_lps cl
+		          JOIN capital_calls cc ON cl.call_id = cc.call_id
+		          WHERE 1=1`
+		var args []interface{}
+		argId := 1
+
+		if callID != "" {
+			query += fmt.Sprintf(" AND cl.call_id = $%d", argId)
+			args = append(args, callID)
+			argId++
+		}
+		if risk == "high" {
+			query += fmt.Sprintf(" AND cl.risk_score > 0.7")
+		}
+		if callStatus != "" {
+			query += fmt.Sprintf(" AND cc.status = $%d", argId)
+			args = append(args, callStatus)
+			argId++
+		}
+
+		query += " ORDER BY cl.risk_score DESC, cl.lp_id ASC"
+
+		rows, err := pool.Query(context.Background(), query, args...)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -330,13 +327,14 @@ func main() {
 
 		var lps []map[string]interface{}
 		for rows.Next() {
-			var lpId, status string
+			var cid, lpId, lpStatusStr, callStatusStr string
 			var commitmentUSD float64
 			var drawAmountUSD *float64
 			var riskScore *float64
+			var flaggedAt *time.Time
 
-			if err := rows.Scan(&lpId, &commitmentUSD, &drawAmountUSD, &status, &riskScore); err != nil {
-				log.Printf("Failed to scan capital_call_lps row: %v", err)
+			if err := rows.Scan(&cid, &lpId, &commitmentUSD, &drawAmountUSD, &lpStatusStr, &riskScore, &callStatusStr, &flaggedAt); err != nil {
+				log.Printf("Failed to scan lps row: %v", err)
 				continue
 			}
 
@@ -345,17 +343,26 @@ func main() {
 				drawAmt = *drawAmountUSD
 			}
 
-			var risk interface{} = nil
+			var riskVal interface{} = nil
 			if riskScore != nil {
-				risk = *riskScore
+				riskVal = *riskScore
+			}
+
+			flaggedAtStr := ""
+			if flaggedAt != nil {
+				flaggedAtStr = flaggedAt.Format(time.RFC3339)
 			}
 
 			lps = append(lps, map[string]interface{}{
+				"callId":        cid,
 				"lpId":          lpId,
 				"commitmentUSD": commitmentUSD,
 				"drawAmountUSD": drawAmt,
-				"status":        status,
-				"riskScore":     risk,
+				"status":        lpStatusStr,
+				"lpStatus":      lpStatusStr, // Provide both status and lpStatus for frontend compatibility
+				"callStatus":    callStatusStr,
+				"riskScore":     riskVal,
+				"flaggedAt":     flaggedAtStr,
 			})
 		}
 
@@ -404,68 +411,6 @@ func main() {
 		c.JSON(http.StatusOK, lps)
 	})
 
-	// GET /api/lps/:lpId/capital-calls — returns all capital calls an LP participated in
-	r.GET("/api/lps/:lpId/capital-calls", func(c *gin.Context) {
-		lpID := c.Param("lpId")
-
-		rows, err := pool.Query(context.Background(),
-			`SELECT cc.call_id, cc.fund_id, cc.target_amount_usd, cc.received_amount_usd,
-			        COALESCE(cc.lp_completion_count, '0 / 0'), cc.deadline_date, cc.status,
-			        cl.commitment_usd, cl.draw_amount_usd, cl.status AS lp_status
-			 FROM capital_calls cc
-			 JOIN capital_call_lps cl ON cc.call_id = cl.call_id
-			 WHERE cl.lp_id = $1
-			 ORDER BY cc.created_at DESC`, lpID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		defer rows.Close()
-
-		var calls []map[string]interface{}
-		for rows.Next() {
-			var callId, fundId, callStatus, lpCompletion, lpStatus string
-			var targetAmt, receivedAmt float64
-			var commitmentUSD float64
-			var drawAmountUSD *float64
-			var deadline *time.Time
-
-			if err := rows.Scan(&callId, &fundId, &targetAmt, &receivedAmt, &lpCompletion,
-				&deadline, &callStatus, &commitmentUSD, &drawAmountUSD, &lpStatus); err != nil {
-				log.Printf("Failed to scan lp capital-calls row: %v", err)
-				continue
-			}
-
-			deadlineStr := ""
-			if deadline != nil {
-				deadlineStr = deadline.Format(time.RFC3339)
-			}
-
-			drawAmt := 0.0
-			if drawAmountUSD != nil {
-				drawAmt = *drawAmountUSD
-			}
-
-			calls = append(calls, map[string]interface{}{
-				"id":            callId,
-				"fund":          fundId,
-				"target":        targetAmt,
-				"received":      receivedAmt,
-				"lpCompletion":  lpCompletion,
-				"deadlineDate":  deadlineStr,
-				"status":        callStatus,
-				"commitmentUSD": commitmentUSD,
-				"drawAmountUSD": drawAmt,
-				"lpStatus":      lpStatus,
-			})
-		}
-
-		if calls == nil {
-			calls = []map[string]interface{}{}
-		}
-
-		c.JSON(http.StatusOK, calls)
-	})
 
 	// ─── Dashboard Stats ─────────────────────────────────────────────────────
 
