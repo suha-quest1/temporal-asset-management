@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import '../styles/CapitalCallDetailsPage.css';
 import '../styles/LPRiskTrackerPage.css';
-import { getRiskyLPs, postGPDecision, getCallLPs, getCapitalCalls, postForceSettlement, postCancelCall } from '../api/CapitalCall';
+import { getRiskyLPs, postGPDecision, getCallLPs, getCapitalCalls, postForceSettlement, postCancelCall, getCallTimeline } from '../api/CapitalCall';
 import type { CapitalCall } from '../components/CapitalCallRow';
 
 import { useParams, useNavigate } from 'react-router-dom';
@@ -28,12 +28,14 @@ interface CallLP {
 
 const currencyFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
-const timelineEvents = [
-  { time: '09:00 AM', title: 'Capital Call Issued', desc: 'Global release of CC notice', color: '#3b82f6' },
-  { time: '09:05 AM', title: 'LP Notifications Dispatched', desc: 'Secure email/portal alerts sent', color: '#3b82f6' },
-  { time: '09:42 AM', title: 'Bridge Facility Triggered', desc: 'Liquidity Engine: Auto-activation', color: '#a855f7' },
-  { time: '10:15 AM', title: 'LP Escalation Flagged', desc: 'Liquidity verification failed', color: '#ef4444' },
-];
+// Timeline event shape returned by GET /api/capital-calls/:callId/timeline
+interface TimelineEvent {
+  name: string;
+  title: string;
+  status: string;
+  timestamp: string;
+  color: string;
+}
 
 export default function CapitalCallDetailsPage() {
   const { callId } = useParams();
@@ -52,6 +54,9 @@ export default function CapitalCallDetailsPage() {
   // Local state for the call
   const [activeCall, setActiveCall] = useState<CapitalCall | null>(null);
 
+  // Live timeline events from Temporal workflow history
+  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
+
   // Fetch the latest call details dynamically
   useEffect(() => {
     if (!callId) return;
@@ -68,6 +73,19 @@ export default function CapitalCallDetailsPage() {
     
     fetchCall();
     const interval = setInterval(fetchCall, 5000);
+    return () => clearInterval(interval);
+  }, [callId]);
+
+  // Fetch live workflow timeline from Temporal history
+  useEffect(() => {
+    if (!callId) return;
+    const fetchTimeline = () => {
+      getCallTimeline(callId)
+        .then((data: TimelineEvent[]) => setTimelineEvents(Array.isArray(data) ? data : []))
+        .catch(err => console.error('Failed to fetch timeline', err));
+    };
+    fetchTimeline();
+    const interval = setInterval(fetchTimeline, 5000);
     return () => clearInterval(interval);
   }, [callId]);
 
@@ -491,22 +509,32 @@ export default function CapitalCallDetailsPage() {
               </div>
             </div>
           ) : (
-            <div className="ccd-section-card ccd-timeline-panel">
+          <div className="ccd-section-card ccd-timeline-panel">
               <div className="ccd-section-title">OPERATION TIMELINE</div>
               <div className="ccd-timeline">
-                {timelineEvents.map((ev, idx) => (
-                  <div key={idx} className="ccd-timeline-item">
-                    <div className="ccd-timeline-time">{ev.time}</div>
-                    <div className="ccd-timeline-indicator">
-                      <div className="ccd-timeline-dot" style={{ background: ev.color }}></div>
-                      {idx < timelineEvents.length - 1 && <div className="ccd-timeline-line"></div>}
-                    </div>
-                    <div className="ccd-timeline-content">
-                      <div className="ccd-timeline-title">{ev.title}</div>
-                      <div className="ccd-timeline-desc">{ev.desc}</div>
-                    </div>
+                {timelineEvents.length === 0 ? (
+                  <div style={{ color: '#6b7280', fontSize: '0.85rem', padding: '1rem 0' }}>
+                    No workflow events recorded yet. Timeline updates as activities complete.
                   </div>
-                ))}
+                ) : (
+                  timelineEvents.map((ev, idx) => (
+                    <div key={idx} className="ccd-timeline-item">
+                      <div className="ccd-timeline-time">
+                        {ev.timestamp
+                          ? new Date(ev.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                          : '—'}
+                      </div>
+                      <div className="ccd-timeline-indicator">
+                        <div className="ccd-timeline-dot" style={{ background: ev.color }}></div>
+                        {idx < timelineEvents.length - 1 && <div className="ccd-timeline-line"></div>}
+                      </div>
+                      <div className="ccd-timeline-content">
+                        <div className="ccd-timeline-title">{ev.title}</div>
+                        <div className="ccd-timeline-desc">{ev.name}</div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}

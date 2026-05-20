@@ -43,6 +43,8 @@ func (s *LPResponseWorkflowTestSuite) TestLPCommitsOnTime() {
 		SecondsPerDay: 1,
 	}
 
+	s.env.OnActivity("UpdateLiveAggregates", mock.Anything, mock.Anything).Return(nil).Maybe()
+
 	// Send signal immediately
 	s.env.RegisterDelayedCallback(func() {
 		s.env.SignalWorkflow(SignalLPCommitment, models.LPCommitmentSignal{
@@ -74,6 +76,8 @@ func (s *LPResponseWorkflowTestSuite) TestLPCommitsAfterFirstFollowUp() {
 		DeadlineDays:  10,
 		SecondsPerDay: 1, // 1 second per "day"
 	}
+
+	s.env.OnActivity("UpdateLiveAggregates", mock.Anything, mock.Anything).Return(nil).Maybe()
 
 	s.env.OnActivity("AutoFollowUp", mock.Anything, mock.MatchedBy(func(inp models.AutoFollowUpInput) bool {
 		return inp.Stage == 1
@@ -111,6 +115,8 @@ func (s *LPResponseWorkflowTestSuite) TestLPDefaultsAfterAllFollowUps() {
 		SecondsPerDay: 1,
 	}
 
+	s.env.OnActivity("UpdateLiveAggregates", mock.Anything, mock.Anything).Return(nil).Maybe()
+
 	// Expect 3 follow-up calls: stage 1 (D+3), stage 2 (D+7), stage 3 (D+10)
 	s.env.OnActivity("AutoFollowUp", mock.Anything, mock.MatchedBy(func(inp models.AutoFollowUpInput) bool {
 		return inp.Stage == 1
@@ -147,6 +153,7 @@ func (s *LPResponseWorkflowTestSuite) TestLPCommitsLateAfterAllFollowUps() {
 		SecondsPerDay: 1,
 	}
 
+	s.env.OnActivity("UpdateLiveAggregates", mock.Anything, mock.Anything).Return(nil).Maybe()
 	s.env.OnActivity("AutoFollowUp", mock.Anything, mock.Anything).Return(nil).Maybe()
 
 	// LP commits at "day 12" — after all follow-ups (D+10) but before deadline (D+15)

@@ -146,24 +146,7 @@ services:
       - ./reports:/reports
     restart: on-failure
 
-  # ─── Demo Driver (run once) ───────────────────────────────────────
 
-  demo-driver:
-    build:
-      context: .
-      args:
-        SERVICE: demodriver
-    depends_on:
-      worker:
-        condition: service_started
-      api-server:
-        condition: service_started
-    environment:
-      TEMPORAL_ADDRESS: temporal:7233
-      API_SERVER_URL: http://api-server:8090
-    profiles:
-      - demo
-    restart: "no"
 
 volumes:
   postgres-data:

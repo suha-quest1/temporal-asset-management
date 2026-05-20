@@ -1,5 +1,5 @@
 # Multi-stage build for all Go services.
-# Pass --build-arg SERVICE=worker|apiserver|demodriver|mockses|mockcreditfacility
+# Pass --build-arg SERVICE=worker|apiserver|mockses|mockcreditfacility
 FROM golang:1.22-alpine AS builder
 RUN apk add --no-cache git
 WORKDIR /app

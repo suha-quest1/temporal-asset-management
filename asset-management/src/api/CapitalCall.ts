@@ -103,3 +103,12 @@ export const postCancelCall = async (callId: string) => {
 
   return response.json();
 };
+
+export const getCallTimeline = async (callId: string) => {
+  const response = await fetch(`/api/capital-calls/${callId}/timeline`);
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Failed to fetch timeline: ${errorBody}`);
+  }
+  return response.json();
+};

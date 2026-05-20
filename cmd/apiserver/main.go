@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -16,11 +15,6 @@ import (
 	"github.com/vishworks/assetmgmt/internal/db"
 	"github.com/vishworks/assetmgmt/internal/models"
 	"github.com/vishworks/assetmgmt/internal/workflows"
-)
-
-var (
-	latestCallMu sync.Mutex
-	latestCall   models.CapitalCallInput
 )
 
 func main() {
@@ -42,7 +36,7 @@ func main() {
 	defer c.Close()
 
 	r := gin.Default()
-	
+
 	// Serve generated JSON reports directly
 	reportDir := envOrDefault("REPORT_DIR", "./reports")
 	r.Static("/reports", reportDir)
@@ -181,10 +175,6 @@ func main() {
 			DeadlineDays:    body.DeadlineDays,
 		}
 
-		latestCallMu.Lock()
-		latestCall = input
-		latestCallMu.Unlock()
-
 		workflowID := "capital-call-" + callID
 		opts := client.StartWorkflowOptions{
 			ID:        workflowID,
@@ -204,8 +194,118 @@ func main() {
 		})
 	})
 
-	// ─── Capital Calls List (DB-driven) ─────────────────────────────────────
+	// ─── Workflow Timeline ────────────────────────────────────────────────────
 
+	// GET /api/capital-calls/:callId/timeline
+	// Reads Temporal workflow history for the parent CapitalCallWorkflow and
+	// returns a lightweight list of completed activities in chronological order.
+	// No DB reads — Temporal history is the source of truth.
+	r.GET("/api/capital-calls/:callId/timeline", func(ctx *gin.Context) {
+		callID := ctx.Param("callId")
+		workflowID := "capital-call-" + callID
+
+		displayNames := map[string]string{
+			"IssueCapitalCall":       "Capital Call Issued",
+			"NotifyLPs":              "LP Notifications Dispatched",
+			"AutoFollowUp":           "Auto Follow-Up Sent",
+			"PredictDefaultRisk":     "Default Risk Predicted",
+			"ScoreLPPortfolio":       "Portfolio Scored",
+			"AggregateLiquidity":     "Liquidity Aggregated",
+			"TriggerBridge":          "Bridge Facility Triggered",
+			"EscalateToGP":           "Escalated to GP",
+			"SendEnforcementWarning": "Enforcement Warning Sent",
+			"SettleAndReconcile":     "Settlement & Reconciliation",
+			"EmitLiquidityReport":    "Report Generated",
+			"UpdateLiveAggregates":   "Live Aggregates Updated",
+			"MarkCallCancelled":      "Call Cancelled",
+		}
+
+		activityColors := map[string]string{
+			"IssueCapitalCall":       "#3b82f6",
+			"NotifyLPs":              "#3b82f6",
+			"AutoFollowUp":           "#f59e0b",
+			"PredictDefaultRisk":     "#a855f7",
+			"ScoreLPPortfolio":       "#a855f7",
+			"AggregateLiquidity":     "#3b82f6",
+			"TriggerBridge":          "#a855f7",
+			"EscalateToGP":           "#ef4444",
+			"SendEnforcementWarning": "#ef4444",
+			"SettleAndReconcile":     "#10b981",
+			"EmitLiquidityReport":    "#10b981",
+			"UpdateLiveAggregates":   "#3b82f6",
+			"MarkCallCancelled":      "#6b7280",
+		}
+
+		type TimelineEvent struct {
+			Name      string `json:"name"`
+			Title     string `json:"title"`
+			Status    string `json:"status"`
+			Timestamp string `json:"timestamp"`
+			Color     string `json:"color"`
+		}
+
+		// Pass 1: build eventId → activityType map from all scheduled events.
+		scheduledByID := make(map[int64]string)
+		iter1 := c.GetWorkflowHistory(ctx, workflowID, "", false, 0)
+		for iter1.HasNext() {
+			ev, err := iter1.Next()
+			if err != nil {
+				log.Printf("timeline pass1 %s: %v", workflowID, err)
+				break
+			}
+			if sa := ev.GetActivityTaskScheduledEventAttributes(); sa != nil {
+				scheduledByID[ev.GetEventId()] = sa.GetActivityType().GetName()
+			}
+		}
+
+		// Pass 2: walk history again, emit one entry per completed activity.
+		var events []TimelineEvent
+		iter2 := c.GetWorkflowHistory(ctx, workflowID, "", false, 0)
+		for iter2.HasNext() {
+			ev, err := iter2.Next()
+			if err != nil {
+				log.Printf("timeline pass2 %s: %v", workflowID, err)
+				break
+			}
+			attrs := ev.GetActivityTaskCompletedEventAttributes()
+			if attrs == nil {
+				continue
+			}
+			actName, ok := scheduledByID[attrs.GetScheduledEventId()]
+			if !ok {
+				continue
+			}
+
+			ts := ""
+			if ev.EventTime != nil {
+				ts = ev.EventTime.AsTime().UTC().Format(time.RFC3339)
+			}
+
+			title := actName
+			if d, ok := displayNames[actName]; ok {
+				title = d
+			}
+			color := "#6b7280"
+			if col, ok := activityColors[actName]; ok {
+				color = col
+			}
+
+			events = append(events, TimelineEvent{
+				Name:      actName,
+				Title:     title,
+				Status:    "completed",
+				Timestamp: ts,
+				Color:     color,
+			})
+		}
+
+		if events == nil {
+			events = []TimelineEvent{}
+		}
+		ctx.JSON(http.StatusOK, events)
+	})
+
+	// ─── Capital Calls List (DB-driven) ─────────────────────────────────────
 
 
 	// GET /api/capital-calls — returns all capital calls from DB (optionally filtered by lpId)
@@ -373,8 +473,6 @@ func main() {
 		c.JSON(http.StatusOK, lps)
 	})
 
-
-
 	// ─── LP Master List ──────────────────────────────────────────────────────
 
 	// GET /api/lps — returns all seeded LPs from the lps master table
@@ -411,7 +509,6 @@ func main() {
 		c.JSON(http.StatusOK, lps)
 	})
 
-
 	// ─── Dashboard Stats ─────────────────────────────────────────────────────
 
 	// GET /api/dashboard/stats — returns aggregated stats for the dashboard
@@ -446,21 +543,6 @@ func main() {
 			"avgLPResponse":    "—",
 			"activeCalls":      activeCallsStr,
 		})
-	})
-
-	// ─── Demodriver transitional endpoint ────────────────────────────────────
-
-	// GET /api/capital-calls/latest — used by demodriver to poll for active call
-	r.GET("/api/capital-calls/latest", func(ctx *gin.Context) {
-		latestCallMu.Lock()
-		defer latestCallMu.Unlock()
-
-		if latestCall.CallID == "" {
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "no active call"})
-			return
-		}
-
-		ctx.JSON(http.StatusOK, latestCall)
 	})
 
 	log.Printf("API server listening on %s", listenAddr)

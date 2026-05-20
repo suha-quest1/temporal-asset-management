@@ -357,6 +357,54 @@ func TestSettleAndReconcile_NoDB(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// ── UpdateLiveAggregates (no DB) ───────────────────────────────────────────
+
+func TestUpdateLiveAggregates_NoDB(t *testing.T) {
+	a := &Activities{} // No DB — skips Postgres operations
+	env := newTestEnv(t, a)
+
+	_, err := env.ExecuteActivity(a.UpdateLiveAggregates, models.UpdateLiveAggregatesInput{
+		CallID:    "call-1",
+		LPID:      "lp-01",
+		Status:    "committed",
+		AmountUSD: 5_000_000,
+	})
+	require.NoError(t, err)
+}
+
+// ── MarkCallCancelled (no DB) ──────────────────────────────────────────────
+
+func TestMarkCallCancelled_NoDB(t *testing.T) {
+	a := &Activities{} // No DB — skips Postgres operations
+	env := newTestEnv(t, a)
+
+	_, err := env.ExecuteActivity(a.MarkCallCancelled, "call-1")
+	require.NoError(t, err)
+}
+
+// ── SendEnforcementWarning ─────────────────────────────────────────────────
+
+func TestSendEnforcementWarning_PostsToSES(t *testing.T) {
+	called := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called++
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	a := &Activities{SESURL: srv.URL}
+	env := newTestEnv(t, a)
+
+	_, err := env.ExecuteActivity(a.SendEnforcementWarning, models.EnforcementWarningInput{
+		CallID: "call-1",
+		LP:     models.LP{LPID: "lp-08", CommitmentUSD: 8_000_000, Email: "lp08@test.com"},
+		GPName: "TestGP",
+	})
+	require.NoError(t, err)
+	// Expect 2 calls: one to LP, one to GP channel
+	assert.Equal(t, 2, called)
+}
+
 // ── Edge case: unused context import guard ─────────────────────────────────
 
 var _ = context.Background // ensure context import is used

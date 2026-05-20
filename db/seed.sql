@@ -1,4 +1,4 @@
--- Seed the canonical 10 LPs (matches demodriver simulation)
+-- Seed the canonical 10 LPs
 INSERT INTO lps (lp_id, commitment_usd, email) VALUES
     ('lp-01', 15000000.00, 'lp-01@example.com'),
     ('lp-02', 12000000.00, 'lp-02@example.com'),

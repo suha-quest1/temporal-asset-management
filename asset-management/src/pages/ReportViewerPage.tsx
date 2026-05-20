@@ -259,7 +259,7 @@ export default function ReportViewerPage() {
           <div className="footer-meta-grid">
             <div className="footer-meta-block">
               <strong>AUTHORIZED SIGNATURE</strong>
-              <span>Compliance Officer - Alpha Global</span>
+              <span>Compliance Officer - Quest1</span>
             </div>
             <div className="footer-meta-block">
               <strong>EFFECTIVE DATE</strong>

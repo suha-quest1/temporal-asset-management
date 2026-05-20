@@ -2,6 +2,7 @@ package workflows
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -387,4 +388,106 @@ func (s *CapitalCallWorkflowTestSuite) TestGPEnforce() {
 				"enforce should not zero out the LP contribution")
 		}
 	}
+}
+
+// TestCancelCall verifies that sending a cancelCall signal aborts the workflow
+// and marks the call as cancelled.
+func (s *CapitalCallWorkflowTestSuite) TestCancelCall() {
+	input := testInput()
+
+	s.env.OnActivity("IssueCapitalCall", mock.Anything, mock.Anything).Return(
+		&models.IssueCapitalCallResult{CallID: "test-call-1", DrawAmounts: map[string]float64{}}, nil,
+	)
+	s.env.OnActivity("NotifyLPs", mock.Anything, mock.Anything).Return(nil)
+	s.env.OnActivity("AutoFollowUp", mock.Anything, mock.Anything).Return(nil).Maybe()
+	s.env.OnActivity("UpdateLiveAggregates", mock.Anything, mock.Anything).Return(nil).Maybe()
+	
+	s.env.OnActivity("MarkCallCancelled", mock.Anything, "test-call-1").Return(nil)
+
+	// Send cancelCall signal
+	s.env.RegisterDelayedCallback(func() {
+		s.env.SignalWorkflow(SignalCancelCall, nil)
+	}, 0)
+
+	s.env.ExecuteWorkflow(CapitalCallWorkflow, input)
+
+	require.True(s.T(), s.env.IsWorkflowCompleted())
+	require.NoError(s.T(), s.env.GetWorkflowError())
+
+	var result models.CapitalCallResult
+	require.NoError(s.T(), s.env.GetWorkflowResult(&result))
+	require.Equal(s.T(), "test-call-1", result.CallID)
+	// Other fields are uninitialized because workflow aborted early
+}
+
+// TestForceSettlement verifies that sending a forceSettlement signal
+// defaults all uncommitted LPs and proceeds to settlement.
+func (s *CapitalCallWorkflowTestSuite) TestForceSettlement() {
+	input := testInput()
+
+	s.env.OnActivity("IssueCapitalCall", mock.Anything, mock.Anything).Return(
+		&models.IssueCapitalCallResult{CallID: "test-call-1", DrawAmounts: map[string]float64{}}, nil,
+	)
+	s.env.OnActivity("NotifyLPs", mock.Anything, mock.Anything).Return(nil)
+	s.env.OnActivity("AutoFollowUp", mock.Anything, mock.Anything).Return(nil).Maybe()
+	s.env.OnActivity("UpdateLiveAggregates", mock.Anything, mock.Anything).Return(nil).Maybe()
+
+	s.env.OnActivity("AggregateLiquidity", mock.Anything, mock.Anything).Return(
+		&models.AggregateLiquidityResult{TotalCommitted: 4_000_000, GapUSD: 6_000_000, GapPercent: 60.0}, nil,
+	)
+
+	s.env.OnActivity("PredictDefaultRisk", mock.Anything, mock.Anything).Return(
+		[]models.LPResponse{
+			{LPID: "lp-01", Status: "committed", AmountUSD: 4_000_000, RiskScore: 0.1},
+			{LPID: "lp-02", Status: "defaulted", AmountUSD: 0, RiskScore: 0.2},
+			{LPID: "lp-03", Status: "defaulted", AmountUSD: 0, RiskScore: 0.15},
+		}, nil,
+	)
+
+	s.env.OnActivity("ScoreLPPortfolio", mock.Anything, mock.Anything).Return(
+		&models.PortfolioRisk{ConcentrationScore: 0.34, TopRiskyLPs: []string{}}, nil,
+	)
+
+	s.env.OnActivity("TriggerBridge", mock.Anything, mock.Anything).Return(
+		&models.TriggerBridgeResult{
+			ConfirmationID: "BRIDGE-123",
+			DrawdownUSD:    6_000_000,
+			FeeUSD:         90_000,
+		}, nil,
+	)
+
+	s.env.OnActivity("SettleAndReconcile", mock.Anything, mock.Anything).Return(nil)
+	s.env.OnActivity("EmitLiquidityReport", mock.Anything, mock.Anything).Return(
+		"/reports/test-call-1.json", nil,
+	)
+
+	// LP-01 commits
+	s.env.RegisterDelayedCallback(func() {
+		s.env.SignalWorkflowByID("lp-response-test-call-1-lp-01", SignalLPCommitment,
+			models.LPCommitmentSignal{LPID: "lp-01", AmountUSD: 4_000_000})
+	}, 0)
+
+	// Force settlement
+	s.env.RegisterDelayedCallback(func() {
+		s.env.SignalWorkflow(SignalForceSettlement, nil)
+	}, time.Second)
+
+	s.env.ExecuteWorkflow(CapitalCallWorkflow, input)
+
+	require.True(s.T(), s.env.IsWorkflowCompleted())
+	require.NoError(s.T(), s.env.GetWorkflowError())
+
+	var result models.CapitalCallResult
+	require.NoError(s.T(), s.env.GetWorkflowResult(&result))
+	require.Equal(s.T(), "test-call-1", result.CallID)
+	require.True(s.T(), result.BridgeTriggered)
+
+	// Ensure LP-02 and LP-03 are defaulted because they were not committed when force settlement happened
+	defaultedCount := 0
+	for _, lp := range result.LPResponses {
+		if lp.Status == "defaulted" {
+			defaultedCount++
+		}
+	}
+	require.Equal(s.T(), 2, defaultedCount)
 }
