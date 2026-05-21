@@ -183,14 +183,15 @@ func CapitalCallWorkflow(ctx workflow.Context, input models.CapitalCallInput) (*
 	var bridgeResult *models.TriggerBridgeResult
 	bridgeTriggered := false
 	if aggResult.GapPercent > 10.0 {
-		bridgeResult = &models.TriggerBridgeResult{}
+		var br models.TriggerBridgeResult
 		err = workflow.ExecuteActivity(ctx, act.TriggerBridge, models.TriggerBridgeInput{
 			CallID: input.CallID,
 			GapUSD: aggResult.GapUSD,
-		}).Get(ctx, bridgeResult)
+		}).Get(ctx, &br)
 		if err != nil {
 			return nil, fmt.Errorf("triggerBridge: %w", err)
 		}
+		bridgeResult = &br
 		bridgeTriggered = true
 		logger.Info("Bridge drawdown triggered", "amount", bridgeResult.DrawdownUSD)
 	}

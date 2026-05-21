@@ -34,6 +34,7 @@ def generate():
         },
         "lpDetails": call_result.get("lpResponses", []),
         "portfolioRisk": call_result.get("portfolioRisk", {}),
+        "bridgeTriggered": call_result.get("bridgeTriggered", False),
         "bridgeResult": call_result.get("bridgeResult"),
     }
 
